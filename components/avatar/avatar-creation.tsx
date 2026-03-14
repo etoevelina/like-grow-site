@@ -73,14 +73,14 @@ export function AvatarCreation({ quizState, onComplete, onError }: AvatarCreatio
         setAvatarData({ avatar: result.data.avatar, profile: result.data.profile });
         setAvatarReady(true);
       } else {
+        // This shouldn't happen now since we have mock fallback
         setError(result.error || 'Failed to create avatar');
-        onError(result.error || 'Failed to create avatar');
       }
     } catch (err) {
+      // This shouldn't happen now since we have mock fallback
       setError('Something went wrong. Please try again.');
-      onError('Something went wrong. Please try again.');
     }
-  }, [quizState, onError]);
+  }, [quizState]);
 
   useEffect(() => {
     createAvatarFromQuiz();

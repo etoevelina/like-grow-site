@@ -54,37 +54,6 @@ function getAccessToken(): string | null {
   return localStorage.getItem('access_token');
 }
 
-// Mock data for when API is unavailable
-function getMockAvatarData(answers: QuizAnswer[]): CreateAvatarResponse {
-  const categories = answers.find(a => a.question.includes('categories'))?.answer || '';
-  const interests = categories.split(', ').filter(Boolean);
-  
-  return {
-    message: 'Avatar created successfully',
-    is_new: true,
-    profile: {
-      personality_type: 'Explorer',
-      personality_description: 'A curious soul who loves discovering new things and sharing experiences with others.',
-      interests: interests.length > 0 ? interests : ['creativity', 'discovery', 'expression'],
-      content_style: 'Eclectic mix of interests',
-    },
-    avatar: {
-      id: Date.now(),
-      level: 1,
-      level_name: 'Seedling',
-      experience: 0,
-      exp_to_next_level: 100,
-      exp_progress_percent: 0,
-      coins: 50,
-      current_image_url: '/avatar-placeholder.jpg',
-      current_video_url: null,
-      state: 'healthy',
-      traits: ['curious', 'creative'],
-      accessories: [],
-    },
-  };
-}
-
 export async function createAvatar(quizAnswers: QuizAnswer[]): Promise<{
   success: boolean;
   data?: CreateAvatarResponse;
@@ -93,10 +62,8 @@ export async function createAvatar(quizAnswers: QuizAnswer[]): Promise<{
   try {
     const token = getAccessToken();
     
-    // If no token, use mock data for demo
     if (!token) {
-      const mockData = getMockAvatarData(quizAnswers);
-      return { success: true, data: mockData };
+      return { success: false, error: 'Not authenticated' };
     }
 
     const response = await fetch(`${API_BASE}/api/avatar/quiz`, {
@@ -113,44 +80,41 @@ export async function createAvatar(quizAnswers: QuizAnswer[]): Promise<{
     const data = await response.json();
 
     if (!response.ok) {
-      // If API fails, use mock data as fallback for demo
-      const mockData = getMockAvatarData(quizAnswers);
-      return { success: true, data: mockData };
+      return { success: false, error: data.message || 'Failed to create avatar' };
     }
 
+    // Save avatar data to localStorage for persistence
+    saveAvatarData(data.avatar, data.profile);
+
     return { success: true, data };
-  } catch {
-    // Use mock data as fallback
-    const mockData = getMockAvatarData(quizAnswers);
-    return { success: true, data: mockData };
+  } catch (error) {
+    console.error('Create avatar error:', error);
+    return { success: false, error: 'Network error. Please try again.' };
   }
 }
 
-// Mock avatar data for demo mode
-function getMockExistingAvatar(): { avatar: Avatar; profile: AvatarProfile } {
-  return {
-    avatar: {
-      id: 1,
-      level: 1,
-      level_name: 'Seedling',
-      experience: 0,
-      exp_to_next_level: 100,
-      exp_progress_percent: 0,
-      coins: 50,
-      current_image_url: '/avatar-placeholder.jpg',
-      current_video_url: null,
-      state: 'healthy',
-      traits: ['curious', 'creative'],
-      accessories: [],
-      saved_posts_count: 0,
-    },
-    profile: {
-      personality_type: 'Explorer',
-      personality_description: 'A curious soul ready to grow.',
-      interests: ['creativity', 'discovery'],
-      content_style: 'Eclectic',
-    },
-  };
+// Save avatar data to localStorage
+export function saveAvatarData(avatar: Avatar, profile: AvatarProfile): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem('avatar_data', JSON.stringify({ avatar, profile }));
+}
+
+// Get saved avatar data from localStorage
+export function getSavedAvatarData(): { avatar: Avatar; profile: AvatarProfile } | null {
+  if (typeof window === 'undefined') return null;
+  const data = localStorage.getItem('avatar_data');
+  if (!data) return null;
+  try {
+    return JSON.parse(data);
+  } catch {
+    return null;
+  }
+}
+
+// Clear saved avatar data
+export function clearAvatarData(): void {
+  if (typeof window === 'undefined') return;
+  localStorage.removeItem('avatar_data');
 }
 
 export async function getAvatar(): Promise<{
@@ -161,8 +125,12 @@ export async function getAvatar(): Promise<{
   try {
     const token = getAccessToken();
     if (!token) {
-      // Return mock data for demo
-      return { success: true, data: getMockExistingAvatar() };
+      // Try to get from localStorage
+      const saved = getSavedAvatarData();
+      if (saved) {
+        return { success: true, data: saved };
+      }
+      return { success: false, error: 'Not authenticated' };
     }
 
     const response = await fetch(`${API_BASE}/api/avatar`, {
@@ -175,14 +143,26 @@ export async function getAvatar(): Promise<{
     const data = await response.json();
 
     if (!response.ok) {
-      // Fallback to mock on error
-      return { success: true, data: getMockExistingAvatar() };
+      // Try localStorage as fallback
+      const saved = getSavedAvatarData();
+      if (saved) {
+        return { success: true, data: saved };
+      }
+      return { success: false, error: data.message || 'Failed to get avatar' };
     }
 
+    // Update localStorage with fresh data
+    saveAvatarData(data.avatar, data.profile);
+
     return { success: true, data };
-  } catch {
-    // Fallback to mock on network error
-    return { success: true, data: getMockExistingAvatar() };
+  } catch (error) {
+    console.error('Get avatar error:', error);
+    // Try localStorage as fallback
+    const saved = getSavedAvatarData();
+    if (saved) {
+      return { success: true, data: saved };
+    }
+    return { success: false, error: 'Network error. Please try again.' };
   }
 }
 

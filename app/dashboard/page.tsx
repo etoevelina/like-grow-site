@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useSocket, ContentSubmitResult } from '@/hooks/use-socket';
-import { getAvatar, Avatar, AvatarProfile, AvatarState } from '@/lib/avatar-api';
+import { getAvatar, Avatar, AvatarProfile, AvatarState, saveAvatarData } from '@/lib/avatar-api';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -52,9 +52,13 @@ export default function DashboardPage() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
   // Socket connection
-  const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
+const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
     setAvatar(updatedAvatar);
-  }, []);
+    // Save to localStorage for persistence
+    if (profile) {
+      saveAvatarData(updatedAvatar, profile);
+    }
+  }, [profile]);
 
   const handleContentResult = useCallback((result: ContentSubmitResult & { url?: string }) => {
     // Update history item

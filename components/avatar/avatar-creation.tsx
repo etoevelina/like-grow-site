@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronLeft, Share2, TrendingUp, Coins, Skull, Sparkles, Check, Baby } from 'lucide-react';
+import { ChevronRight, ChevronLeft, TrendingUp, Skull, Sparkles, Check, Baby } from 'lucide-react';
 import { createAvatar, formatQuizAnswers, Avatar, AvatarProfile, QuizAnswer } from '@/lib/avatar-api';
 import { QuizState } from '@/lib/quiz-types';
 import { Button } from '@/components/ui/button';
@@ -13,46 +13,30 @@ interface AvatarCreationProps {
   onError: (error: string) => void;
 }
 
-// Onboarding slides explaining the app mechanics
+// Onboarding slides - shortened to 3 key messages
 const ONBOARDING_SLIDES = [
   {
     id: 'newborn',
     icon: Baby,
-    title: 'A New Life Begins',
-    description: 'Your avatar is like a newborn - a blank canvas ready to grow. Right now, they are just taking their first breath in this digital world.',
-    highlight: 'Who they become depends entirely on you',
+    title: 'Your Avatar is Born',
+    description: 'A blank canvas ready to grow. Share content from Instagram and TikTok to shape who they become.',
+    highlight: 'Fitness = muscular, Travel = explorer, Fashion = stylish',
     color: 'primary',
-  },
-  {
-    id: 'share',
-    icon: Share2,
-    title: 'Feed Them Content',
-    description: 'Share videos from Instagram and TikTok. Every piece of content you save shapes their personality, interests, and appearance.',
-    highlight: 'Fitness posts = muscular. Travel = explorer. Fashion = stylish',
-    color: 'accent',
   },
   {
     id: 'grow',
     icon: TrendingUp,
-    title: 'Level Up System',
-    description: 'Each post earns XP. Watch your avatar evolve from a Seedling to a Legend through 10 unique levels. Higher levels unlock new animations and abilities.',
-    highlight: 'Seedling > Sprout > Bloom > ... > Legend',
-    color: 'cyan',
-  },
-  {
-    id: 'earn',
-    icon: Coins,
-    title: 'Earn Coins',
-    description: 'Every post also earns coins! Use them in the shop to buy accessories, outfits, and special items for your avatar.',
+    title: 'Level Up & Earn',
+    description: 'Every post earns XP and coins. Level up from Seedling to Legend, and shop for accessories.',
     highlight: 'Your content taste has real value here',
-    color: 'yellow',
+    color: 'accent',
   },
   {
     id: 'warning',
     icon: Skull,
     title: 'Keep Them Alive',
-    description: 'Without fresh content, your avatar gets lonely. They will start to degrade, lose energy, and eventually... fade away forever.',
-    highlight: 'A mirror of how content consumption affects us all',
+    description: 'Without fresh content, your avatar will degrade and fade away. A mirror of how content affects us all.',
+    highlight: 'Feed them regularly to keep them thriving',
     color: 'destructive',
   },
 ];

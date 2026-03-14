@@ -489,17 +489,7 @@ function smartShuffle(questions: MixedQuestion[]): MixedQuestion[] {
 export function generateMixedQuestions(selectedCategories: Category[], includeMusicChallenges: boolean): MixedQuestion[] {
   const questions: MixedQuestion[] = [];
   
-  // Add world map if travel selected
-  if (selectedCategories.includes('travel')) {
-    questions.push({
-      type: 'worldMap',
-      id: 'worldmap-travel',
-      category: 'travel',
-      data: null,
-    });
-  }
-  
-  // Add mood boards (general aesthetic + category specific)
+  // 1. General aesthetic mood board (always)
   const generalMood = MOOD_BOARDS.find(m => m.category === 'general');
   if (generalMood) {
     questions.push({
@@ -510,137 +500,72 @@ export function generateMixedQuestions(selectedCategories: Category[], includeMu
     });
   }
   
-  selectedCategories.forEach(cat => {
-    const mood = MOOD_BOARDS.find(m => m.category === cat);
-    if (mood) {
-      questions.push({
-        type: 'moodBoard',
-        id: mood.id,
-        category: cat,
-        data: mood,
-      });
-    }
-  });
-  
-  // Add this-or-that (personality questions)
+  // 2. Quick personality questions (this-or-that) - shortened to 3 questions
+  const quickPicks = {
+    ...THIS_OR_THAT_SETS[0],
+    questions: THIS_OR_THAT_SETS[0].questions.slice(0, 3),
+  };
   questions.push({
     type: 'thisOrThat',
-    id: THIS_OR_THAT_SETS[0].id,
+    id: quickPicks.id,
     category: 'general',
-    data: THIS_OR_THAT_SETS[0],
+    data: quickPicks,
   });
   
-  // Add second this-or-that for entertainment
-  if (selectedCategories.some(c => ['movies', 'music', 'memes'].includes(c))) {
-    questions.push({
-      type: 'thisOrThat',
-      id: THIS_OR_THAT_SETS[1].id,
-      category: 'general',
-      data: THIS_OR_THAT_SETS[1],
-    });
-  }
-  
-  // Add swipe cards (max 1 per relevant category)
-  selectedCategories.forEach(cat => {
-    const cards = SWIPE_CARDS[cat];
+  // 3. One swipe set for primary category (first selected)
+  const primaryCategory = selectedCategories[0];
+  if (primaryCategory) {
+    const cards = SWIPE_CARDS[primaryCategory];
     if (cards && cards.length > 0) {
       questions.push({
         type: 'swipe',
-        id: `swipe-${cat}`,
-        category: cat,
-        data: cards,
+        id: `swipe-${primaryCategory}`,
+        category: primaryCategory,
+        data: cards.slice(0, 4), // Limit to 4 cards
       });
     }
-  });
+  }
   
-  // Add trivia questions (1-2 per category if available)
-  selectedCategories.forEach(cat => {
-    const trivias = EXTENDED_TRIVIA.filter(t => t.category === cat);
-    trivias.slice(0, 2).forEach(trivia => {
-      questions.push({
-        type: 'trivia',
-        id: trivia.id,
-        category: cat,
-        data: trivia,
-      });
-    });
-  });
-  
-  // Add quote challenges (multiple if movies selected)
-  if (selectedCategories.includes('movies')) {
-    const quotes = EXTENDED_QUOTES.filter(q => q.category === 'movies');
-    quotes.slice(0, 2).forEach(quote => {
-      questions.push({
-        type: 'quote',
-        id: quote.id,
-        category: 'movies',
-        data: quote,
-      });
+  // 4. One trivia question (random from selected categories)
+  const categoryTrivias = EXTENDED_TRIVIA.filter(t => selectedCategories.includes(t.category));
+  if (categoryTrivias.length > 0) {
+    const randomTrivia = categoryTrivias[Math.floor(Math.random() * categoryTrivias.length)];
+    questions.push({
+      type: 'trivia',
+      id: randomTrivia.id,
+      category: randomTrivia.category,
+      data: randomTrivia,
     });
   }
   
-  // Add meme quotes if memes selected
-  if (selectedCategories.includes('memes')) {
-    const memeQuotes = EXTENDED_QUOTES.filter(q => q.category === 'memes');
-    memeQuotes.forEach(quote => {
+  // 5. One quote challenge (if movies or memes selected)
+  if (selectedCategories.includes('movies') || selectedCategories.includes('memes')) {
+    const quoteCategory = selectedCategories.includes('movies') ? 'movies' : 'memes';
+    const quotes = EXTENDED_QUOTES.filter(q => q.category === quoteCategory);
+    if (quotes.length > 0) {
+      const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
       questions.push({
         type: 'quote',
-        id: quote.id,
-        category: 'memes',
-        data: quote,
+        id: randomQuote.id,
+        category: quoteCategory,
+        data: randomQuote,
       });
-    });
+    }
   }
   
-  // Add priority rankings (1 per category if available)
-  selectedCategories.forEach(cat => {
-    const ranking = PRIORITY_RANKINGS.find(r => r.category === cat);
-    if (ranking) {
-      questions.push({
-        type: 'priority',
-        id: ranking.id,
-        category: cat,
-        data: ranking,
-      });
-    }
-  });
-  
-  // Add puzzle matches (1 per category if available)
-  selectedCategories.forEach(cat => {
-    const puzzle = PUZZLE_MATCHES.find(p => p.category === cat);
-    if (puzzle) {
-      questions.push({
-        type: 'puzzle',
-        id: puzzle.id,
-        category: cat,
-        data: puzzle,
-      });
-    }
-  });
-  
-  // Add music challenges if applicable
+  // 6. One music challenge (if music selected)
   if (includeMusicChallenges && EXTENDED_MUSIC.length > 0) {
-    // Add 2-3 music challenges
-    const musicChallenges = EXTENDED_MUSIC.slice(0, 3);
-    musicChallenges.forEach(challenge => {
-      questions.push({
-        type: 'musicChallenge',
-        id: challenge.id,
-        category: 'music',
-        data: challenge,
-      });
+    const randomMusic = EXTENDED_MUSIC[Math.floor(Math.random() * EXTENDED_MUSIC.length)];
+    questions.push({
+      type: 'musicChallenge',
+      id: randomMusic.id,
+      category: 'music',
+      data: randomMusic,
     });
   }
   
-  // Add social style questions
-  questions.push({
-    type: 'thisOrThat',
-    id: THIS_OR_THAT_SETS[2].id,
-    category: 'general',
-    data: THIS_OR_THAT_SETS[2],
-  });
-  
-  // Smart shuffle to avoid consecutive same types
+  // Total: 4-6 questions max (mood board, this-or-that, swipe, trivia, quote/music)
+  // Smart shuffle to vary the order
   return smartShuffle(questions);
 }
 

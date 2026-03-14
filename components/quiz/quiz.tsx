@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
 import { ArrowLeft } from 'lucide-react';
 import { 
@@ -8,10 +8,14 @@ import {
   Category, 
   MusicGenre, 
   SwipeResult,
-  SWIPE_CARDS,
-  TRIVIA_QUESTIONS,
-  QUOTE_CHALLENGES,
-  MUSIC_CHALLENGES
+  SwipeCard,
+  TriviaQuestion,
+  QuoteChallenge as QuoteChallengeType,
+  PriorityRankingData,
+  PuzzleMatchData,
+  MusicChallenge as MusicChallengeType,
+  MixedQuestion,
+  generateMixedQuestions,
 } from '@/lib/quiz-types';
 import { ProgressBar } from './progress-bar';
 import { WelcomeScreen } from './welcome-screen';
@@ -21,25 +25,16 @@ import { MusicStep } from './music-step';
 import { SwipeCards } from './swipe-cards';
 import { TriviaStep } from './trivia-step';
 import { QuoteChallenge } from './quote-challenge';
+import { PriorityRanking } from './priority-ranking';
+import { PuzzleMatch } from './puzzle-match';
 import { GenerationScreen } from './generation-screen';
 
-type QuizStep = 
-  | 'welcome' 
-  | 'categories' 
-  | 'humor' 
-  | 'music' 
-  | 'swipe' 
-  | 'trivia' 
-  | 'quote'
-  | 'musicChallenge'
-  | 'generation';
+type QuizPhase = 'welcome' | 'categories' | 'humor' | 'music' | 'questions' | 'generation';
 
 export function Quiz() {
-  const [currentStep, setCurrentStep] = useState<QuizStep>('welcome');
-  const [swipeCategoryIndex, setSwipeCategoryIndex] = useState(0);
-  const [triviaIndex, setTriviaIndex] = useState(0);
-  const [quoteIndex, setQuoteIndex] = useState(0);
-  const [musicChallengeIndex, setMusicChallengeIndex] = useState(0);
+  const [currentPhase, setCurrentPhase] = useState<QuizPhase>('welcome');
+  const [questionIndex, setQuestionIndex] = useState(0);
+  const [mixedQuestions, setMixedQuestions] = useState<MixedQuestion[]>([]);
   
   const [quizState, setQuizState] = useState<QuizState>({
     step: 0,
@@ -52,71 +47,31 @@ export function Quiz() {
     progress: 0,
   });
 
-  // Get categories that have swipe cards
-  const swipeCategories = useMemo(() => {
-    return quizState.selectedCategories.filter(cat => 
-      SWIPE_CARDS[cat] && SWIPE_CARDS[cat].length > 0
-    );
-  }, [quizState.selectedCategories]);
+  // Generate mixed questions when entering questions phase
+  useEffect(() => {
+    if (currentPhase === 'questions' && mixedQuestions.length === 0) {
+      const includeMusicChallenges = quizState.selectedCategories.includes('music') || quizState.musicGenres.length > 0;
+      const questions = generateMixedQuestions(quizState.selectedCategories, includeMusicChallenges);
+      setMixedQuestions(questions);
+    }
+  }, [currentPhase, quizState.selectedCategories, quizState.musicGenres, mixedQuestions.length]);
 
-  // Get relevant trivia questions
-  const relevantTrivia = useMemo(() => {
-    return TRIVIA_QUESTIONS.filter(q => 
-      quizState.selectedCategories.includes(q.category)
-    ).slice(0, 2);
-  }, [quizState.selectedCategories]);
-
-  // Get relevant quote challenges
-  const relevantQuotes = useMemo(() => {
-    return QUOTE_CHALLENGES.filter(q => 
-      quizState.selectedCategories.includes(q.category)
-    ).slice(0, 1);
-  }, [quizState.selectedCategories]);
-
-  // Check if music challenges should be shown
-  const showMusicChallenges = useMemo(() => {
-    return quizState.selectedCategories.includes('music') || quizState.musicGenres.length > 0;
-  }, [quizState.selectedCategories, quizState.musicGenres]);
+  const currentQuestion = mixedQuestions[questionIndex];
+  const totalSteps = 4 + mixedQuestions.length; // welcome, categories, humor, music + questions
 
   const calculateProgress = useCallback(() => {
-    const steps: QuizStep[] = ['welcome', 'categories', 'humor', 'music'];
-    
-    // Add swipe steps
-    swipeCategories.forEach(() => steps.push('swipe'));
-    
-    // Add trivia steps
-    relevantTrivia.forEach(() => steps.push('trivia'));
-    
-    // Add quote steps
-    relevantQuotes.forEach(() => steps.push('quote'));
-    
-    // Add music challenge if applicable
-    if (showMusicChallenges) {
-      steps.push('musicChallenge');
+    if (currentPhase === 'welcome') return 0;
+    if (currentPhase === 'categories') return Math.round((1 / totalSteps) * 100);
+    if (currentPhase === 'humor') return Math.round((2 / totalSteps) * 100);
+    if (currentPhase === 'music') return Math.round((3 / totalSteps) * 100);
+    if (currentPhase === 'questions') {
+      return Math.round(((4 + questionIndex) / totalSteps) * 100);
     }
-    
-    steps.push('generation');
-    
-    const currentIndex = (() => {
-      switch (currentStep) {
-        case 'welcome': return 0;
-        case 'categories': return 1;
-        case 'humor': return 2;
-        case 'music': return 3;
-        case 'swipe': return 4 + swipeCategoryIndex;
-        case 'trivia': return 4 + swipeCategories.length + triviaIndex;
-        case 'quote': return 4 + swipeCategories.length + relevantTrivia.length + quoteIndex;
-        case 'musicChallenge': return 4 + swipeCategories.length + relevantTrivia.length + relevantQuotes.length + musicChallengeIndex;
-        case 'generation': return steps.length - 1;
-        default: return 0;
-      }
-    })();
-    
-    return Math.round((currentIndex / (steps.length - 1)) * 100);
-  }, [currentStep, swipeCategories, relevantTrivia, relevantQuotes, showMusicChallenges, swipeCategoryIndex, triviaIndex, quoteIndex, musicChallengeIndex]);
+    return 100;
+  }, [currentPhase, questionIndex, totalSteps]);
 
   const handleStart = () => {
-    setCurrentStep('categories');
+    setCurrentPhase('categories');
   };
 
   const handleToggleCategory = (category: Category) => {
@@ -136,7 +91,7 @@ export function Quiz() {
   };
 
   const handleCategoriesNext = () => {
-    setCurrentStep('humor');
+    setCurrentPhase('humor');
   };
 
   const handleHumorChange = (value: number) => {
@@ -144,7 +99,7 @@ export function Quiz() {
   };
 
   const handleHumorNext = () => {
-    setCurrentStep('music');
+    setCurrentPhase('music');
   };
 
   const handleToggleMusicGenre = (genre: MusicGenre) => {
@@ -164,48 +119,38 @@ export function Quiz() {
   };
 
   const handleMusicNext = () => {
-    if (swipeCategories.length > 0) {
-      setSwipeCategoryIndex(0);
-      setCurrentStep('swipe');
-    } else if (relevantTrivia.length > 0) {
-      setTriviaIndex(0);
-      setCurrentStep('trivia');
-    } else if (relevantQuotes.length > 0) {
-      setQuoteIndex(0);
-      setCurrentStep('quote');
-    } else if (showMusicChallenges) {
-      setMusicChallengeIndex(0);
-      setCurrentStep('musicChallenge');
+    // Generate questions now
+    const includeMusicChallenges = quizState.selectedCategories.includes('music') || quizState.musicGenres.length > 0;
+    const questions = generateMixedQuestions(quizState.selectedCategories, includeMusicChallenges);
+    setMixedQuestions(questions);
+    
+    if (questions.length > 0) {
+      setQuestionIndex(0);
+      setCurrentPhase('questions');
     } else {
-      setCurrentStep('generation');
+      setCurrentPhase('generation');
     }
   };
 
+  const handleQuestionComplete = () => {
+    if (questionIndex < mixedQuestions.length - 1) {
+      setQuestionIndex(prev => prev + 1);
+    } else {
+      setCurrentPhase('generation');
+    }
+  };
+
+  // Handlers for different question types
   const handleSwipeComplete = (results: SwipeResult[]) => {
-    const currentCategory = swipeCategories[swipeCategoryIndex];
+    if (!currentQuestion) return;
     setQuizState(prev => ({
       ...prev,
       swipeResults: {
         ...prev.swipeResults,
-        [currentCategory]: results,
+        [currentQuestion.category]: results,
       },
     }));
-
-    const nextSwipeIndex = swipeCategoryIndex + 1;
-    if (nextSwipeIndex < swipeCategories.length) {
-      setSwipeCategoryIndex(nextSwipeIndex);
-    } else if (relevantTrivia.length > 0) {
-      setTriviaIndex(0);
-      setCurrentStep('trivia');
-    } else if (relevantQuotes.length > 0) {
-      setQuoteIndex(0);
-      setCurrentStep('quote');
-    } else if (showMusicChallenges) {
-      setMusicChallengeIndex(0);
-      setCurrentStep('musicChallenge');
-    } else {
-      setCurrentStep('generation');
-    }
+    handleQuestionComplete();
   };
 
   const handleTriviaAnswer = (questionId: string, correct: boolean) => {
@@ -218,21 +163,6 @@ export function Quiz() {
     }));
   };
 
-  const handleTriviaNext = () => {
-    const nextIndex = triviaIndex + 1;
-    if (nextIndex < relevantTrivia.length) {
-      setTriviaIndex(nextIndex);
-    } else if (relevantQuotes.length > 0) {
-      setQuoteIndex(0);
-      setCurrentStep('quote');
-    } else if (showMusicChallenges) {
-      setMusicChallengeIndex(0);
-      setCurrentStep('musicChallenge');
-    } else {
-      setCurrentStep('generation');
-    }
-  };
-
   const handleQuoteAnswer = (challengeId: string, answer: string) => {
     setQuizState(prev => ({
       ...prev,
@@ -243,82 +173,22 @@ export function Quiz() {
     }));
   };
 
-  const handleQuoteNext = () => {
-    const nextIndex = quoteIndex + 1;
-    if (nextIndex < relevantQuotes.length) {
-      setQuoteIndex(nextIndex);
-    } else if (showMusicChallenges) {
-      setMusicChallengeIndex(0);
-      setCurrentStep('musicChallenge');
-    } else {
-      setCurrentStep('generation');
-    }
-  };
-
-  const handleMusicChallengeNext = () => {
-    const nextIndex = musicChallengeIndex + 1;
-    if (nextIndex < MUSIC_CHALLENGES.length) {
-      setMusicChallengeIndex(nextIndex);
-    } else {
-      setCurrentStep('generation');
-    }
-  };
-
   const handleBack = () => {
-    switch (currentStep) {
+    switch (currentPhase) {
       case 'categories':
-        setCurrentStep('welcome');
+        setCurrentPhase('welcome');
         break;
       case 'humor':
-        setCurrentStep('categories');
+        setCurrentPhase('categories');
         break;
       case 'music':
-        setCurrentStep('humor');
+        setCurrentPhase('humor');
         break;
-      case 'swipe':
-        if (swipeCategoryIndex > 0) {
-          setSwipeCategoryIndex(swipeCategoryIndex - 1);
+      case 'questions':
+        if (questionIndex > 0) {
+          setQuestionIndex(prev => prev - 1);
         } else {
-          setCurrentStep('music');
-        }
-        break;
-      case 'trivia':
-        if (triviaIndex > 0) {
-          setTriviaIndex(triviaIndex - 1);
-        } else if (swipeCategories.length > 0) {
-          setSwipeCategoryIndex(swipeCategories.length - 1);
-          setCurrentStep('swipe');
-        } else {
-          setCurrentStep('music');
-        }
-        break;
-      case 'quote':
-        if (quoteIndex > 0) {
-          setQuoteIndex(quoteIndex - 1);
-        } else if (relevantTrivia.length > 0) {
-          setTriviaIndex(relevantTrivia.length - 1);
-          setCurrentStep('trivia');
-        } else if (swipeCategories.length > 0) {
-          setSwipeCategoryIndex(swipeCategories.length - 1);
-          setCurrentStep('swipe');
-        } else {
-          setCurrentStep('music');
-        }
-        break;
-      case 'musicChallenge':
-        if (musicChallengeIndex > 0) {
-          setMusicChallengeIndex(musicChallengeIndex - 1);
-        } else if (relevantQuotes.length > 0) {
-          setQuoteIndex(relevantQuotes.length - 1);
-          setCurrentStep('quote');
-        } else if (relevantTrivia.length > 0) {
-          setTriviaIndex(relevantTrivia.length - 1);
-          setCurrentStep('trivia');
-        } else if (swipeCategories.length > 0) {
-          setSwipeCategoryIndex(swipeCategories.length - 1);
-          setCurrentStep('swipe');
-        } else {
-          setCurrentStep('music');
+          setCurrentPhase('music');
         }
         break;
       default:
@@ -327,12 +197,11 @@ export function Quiz() {
   };
 
   const handleComplete = () => {
-    console.log('Quiz completed!', quizState);
     alert('Avatar created! In a full app, this would redirect to your profile.');
   };
 
-  const showBackButton = currentStep !== 'welcome' && currentStep !== 'generation';
-  const showProgress = currentStep !== 'welcome' && currentStep !== 'generation';
+  const showBackButton = currentPhase !== 'welcome' && currentPhase !== 'generation';
+  const showProgress = currentPhase !== 'welcome' && currentPhase !== 'generation';
   const progress = calculateProgress();
 
   const getCategoryLabel = (category: Category) => {
@@ -348,6 +217,87 @@ export function Quiz() {
       diy: 'DIY Projects',
     };
     return labels[category];
+  };
+
+  const renderCurrentQuestion = () => {
+    if (!currentQuestion) return null;
+
+    switch (currentQuestion.type) {
+      case 'swipe':
+        return (
+          <SwipeCards
+            key={currentQuestion.id}
+            cards={currentQuestion.data as SwipeCard[]}
+            categoryLabel={getCategoryLabel(currentQuestion.category)}
+            onComplete={handleSwipeComplete}
+          />
+        );
+      
+      case 'trivia':
+        return (
+          <TriviaStep
+            key={currentQuestion.id}
+            question={currentQuestion.data as TriviaQuestion}
+            onAnswer={handleTriviaAnswer}
+            onNext={handleQuestionComplete}
+          />
+        );
+      
+      case 'quote':
+        return (
+          <QuoteChallenge
+            key={currentQuestion.id}
+            challenge={currentQuestion.data as QuoteChallengeType}
+            onAnswer={handleQuoteAnswer}
+            onNext={handleQuestionComplete}
+          />
+        );
+      
+      case 'priority':
+        const priorityData = currentQuestion.data as PriorityRankingData;
+        return (
+          <PriorityRanking
+            key={currentQuestion.id}
+            title={priorityData.title}
+            subtitle={priorityData.subtitle}
+            items={priorityData.items}
+            onComplete={() => handleQuestionComplete()}
+          />
+        );
+      
+      case 'puzzle':
+        const puzzleData = currentQuestion.data as PuzzleMatchData;
+        return (
+          <PuzzleMatch
+            key={currentQuestion.id}
+            title={puzzleData.title}
+            subtitle={puzzleData.subtitle}
+            pairs={puzzleData.pairs}
+            onComplete={() => handleQuestionComplete()}
+          />
+        );
+      
+      case 'musicChallenge':
+        const musicData = currentQuestion.data as MusicChallengeType;
+        return (
+          <QuoteChallenge
+            key={currentQuestion.id}
+            challenge={{
+              id: musicData.id,
+              category: 'music',
+              quote: musicData.lyric,
+              missingWord: musicData.correctAnswer,
+              options: musicData.options,
+              source: `${musicData.artist} - ${musicData.song}`,
+            }}
+            onAnswer={handleQuoteAnswer}
+            onNext={handleQuestionComplete}
+          />
+        );
+      
+      default:
+        return null;
+    }
   };
 
   return (
@@ -380,11 +330,11 @@ export function Quiz() {
       {/* Main content */}
       <div className={showProgress ? 'pt-24' : ''}>
         <AnimatePresence mode="wait">
-          {currentStep === 'welcome' && (
+          {currentPhase === 'welcome' && (
             <WelcomeScreen key="welcome" onStart={handleStart} />
           )}
 
-          {currentStep === 'categories' && (
+          {currentPhase === 'categories' && (
             <motion.div
               key="categories"
               className="min-h-screen flex items-center justify-center py-12"
@@ -397,7 +347,7 @@ export function Quiz() {
             </motion.div>
           )}
 
-          {currentStep === 'humor' && (
+          {currentPhase === 'humor' && (
             <motion.div
               key="humor"
               className="min-h-screen flex items-center justify-center py-12"
@@ -410,7 +360,7 @@ export function Quiz() {
             </motion.div>
           )}
 
-          {currentStep === 'music' && (
+          {currentPhase === 'music' && (
             <motion.div
               key="music"
               className="min-h-screen flex items-center justify-center py-12"
@@ -423,66 +373,19 @@ export function Quiz() {
             </motion.div>
           )}
 
-          {currentStep === 'swipe' && swipeCategories[swipeCategoryIndex] && (
+          {currentPhase === 'questions' && currentQuestion && (
             <motion.div
-              key={`swipe-${swipeCategoryIndex}`}
+              key={`question-${questionIndex}`}
+              initial={{ opacity: 0, x: 50 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -50 }}
               className="min-h-screen flex items-center justify-center py-12"
             >
-              <SwipeCards
-                cards={SWIPE_CARDS[swipeCategories[swipeCategoryIndex]]}
-                categoryLabel={getCategoryLabel(swipeCategories[swipeCategoryIndex])}
-                onComplete={handleSwipeComplete}
-              />
+              {renderCurrentQuestion()}
             </motion.div>
           )}
 
-          {currentStep === 'trivia' && relevantTrivia[triviaIndex] && (
-            <motion.div
-              key={`trivia-${triviaIndex}`}
-              className="min-h-screen flex items-center justify-center py-12"
-            >
-              <TriviaStep
-                question={relevantTrivia[triviaIndex]}
-                onAnswer={handleTriviaAnswer}
-                onNext={handleTriviaNext}
-              />
-            </motion.div>
-          )}
-
-          {currentStep === 'quote' && relevantQuotes[quoteIndex] && (
-            <motion.div
-              key={`quote-${quoteIndex}`}
-              className="min-h-screen flex items-center justify-center py-12"
-            >
-              <QuoteChallenge
-                challenge={relevantQuotes[quoteIndex]}
-                onAnswer={handleQuoteAnswer}
-                onNext={handleQuoteNext}
-              />
-            </motion.div>
-          )}
-
-          {currentStep === 'musicChallenge' && MUSIC_CHALLENGES[musicChallengeIndex] && (
-            <motion.div
-              key={`musicChallenge-${musicChallengeIndex}`}
-              className="min-h-screen flex items-center justify-center py-12"
-            >
-              <QuoteChallenge
-                challenge={{
-                  id: MUSIC_CHALLENGES[musicChallengeIndex].id,
-                  category: 'music',
-                  quote: MUSIC_CHALLENGES[musicChallengeIndex].lyric,
-                  missingWord: MUSIC_CHALLENGES[musicChallengeIndex].correctAnswer,
-                  options: MUSIC_CHALLENGES[musicChallengeIndex].options,
-                  source: `${MUSIC_CHALLENGES[musicChallengeIndex].artist} - ${MUSIC_CHALLENGES[musicChallengeIndex].song}`,
-                }}
-                onAnswer={handleQuoteAnswer}
-                onNext={handleMusicChallengeNext}
-              />
-            </motion.div>
-          )}
-
-          {currentStep === 'generation' && (
+          {currentPhase === 'generation' && (
             <GenerationScreen
               key="generation"
               quizState={quizState}

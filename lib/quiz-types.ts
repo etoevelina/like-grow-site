@@ -160,6 +160,239 @@ export const MUSIC_CHALLENGES: MusicChallenge[] = [
   { id: 'mus3', lyric: '"Started from the bottom now we ___"', artist: 'Drake', song: 'Started From The Bottom', options: ['here', 'rich', 'won', 'there'], correctAnswer: 'here' },
 ];
 
+// Priority Ranking Data
+export interface PriorityRankingData {
+  id: string;
+  category: Category;
+  title: string;
+  subtitle: string;
+  items: { id: string; label: string; emoji?: string }[];
+}
+
+export const PRIORITY_RANKINGS: PriorityRankingData[] = [
+  {
+    id: 'rank1',
+    category: 'travel',
+    title: 'Rank your travel priorities',
+    subtitle: 'What matters most when traveling?',
+    items: [
+      { id: 'food', label: 'Local Food & Cuisine', emoji: '🍜' },
+      { id: 'culture', label: 'Culture & History', emoji: '🏛️' },
+      { id: 'adventure', label: 'Adventure & Outdoors', emoji: '🏔️' },
+      { id: 'relaxation', label: 'Relaxation & Beach', emoji: '🏖️' },
+      { id: 'nightlife', label: 'Nightlife & Entertainment', emoji: '🎉' },
+    ],
+  },
+  {
+    id: 'rank2',
+    category: 'movies',
+    title: 'Rank your movie priorities',
+    subtitle: 'What makes a great film for you?',
+    items: [
+      { id: 'plot', label: 'Mind-blowing Plot', emoji: '🧠' },
+      { id: 'visuals', label: 'Stunning Visuals', emoji: '🎬' },
+      { id: 'acting', label: 'Amazing Acting', emoji: '🎭' },
+      { id: 'soundtrack', label: 'Epic Soundtrack', emoji: '🎵' },
+      { id: 'emotions', label: 'Emotional Impact', emoji: '💔' },
+    ],
+  },
+  {
+    id: 'rank3',
+    category: 'food',
+    title: 'Rank your food priorities',
+    subtitle: 'What matters in a meal?',
+    items: [
+      { id: 'taste', label: 'Taste & Flavor', emoji: '👅' },
+      { id: 'healthy', label: 'Healthy & Nutritious', emoji: '🥗' },
+      { id: 'presentation', label: 'Beautiful Presentation', emoji: '📸' },
+      { id: 'price', label: 'Good Value', emoji: '💰' },
+      { id: 'authentic', label: 'Authentic & Traditional', emoji: '👨‍🍳' },
+    ],
+  },
+  {
+    id: 'rank4',
+    category: 'music',
+    title: 'Rank your music priorities',
+    subtitle: 'What makes you love a song?',
+    items: [
+      { id: 'lyrics', label: 'Meaningful Lyrics', emoji: '📝' },
+      { id: 'beat', label: 'Catchy Beat', emoji: '🥁' },
+      { id: 'vocals', label: 'Amazing Vocals', emoji: '🎤' },
+      { id: 'vibe', label: 'Overall Vibe', emoji: '✨' },
+      { id: 'dance', label: 'Danceability', emoji: '💃' },
+    ],
+  },
+];
+
+// Puzzle Match Data
+export interface PuzzleMatchData {
+  id: string;
+  category: Category;
+  title: string;
+  subtitle: string;
+  pairs: { id: string; left: string; right: string; leftEmoji?: string; rightEmoji?: string }[];
+}
+
+export const PUZZLE_MATCHES: PuzzleMatchData[] = [
+  {
+    id: 'puzzle1',
+    category: 'movies',
+    title: 'Match the Quote',
+    subtitle: 'Connect quotes to their movies',
+    pairs: [
+      { id: 'p1', left: '"I am your father"', right: 'Star Wars', leftEmoji: '⚔️', rightEmoji: '🌟' },
+      { id: 'p2', left: '"Here\'s Johnny!"', right: 'The Shining', leftEmoji: '🪓', rightEmoji: '👻' },
+      { id: 'p3', left: '"You talking to me?"', right: 'Taxi Driver', leftEmoji: '🚕', rightEmoji: '🎬' },
+      { id: 'p4', left: '"I\'ll be back"', right: 'Terminator', leftEmoji: '🤖', rightEmoji: '💪' },
+    ],
+  },
+  {
+    id: 'puzzle2',
+    category: 'food',
+    title: 'Match the Dish',
+    subtitle: 'Connect dishes to their countries',
+    pairs: [
+      { id: 'f1', left: 'Sushi', right: 'Japan', leftEmoji: '🍣', rightEmoji: '🇯🇵' },
+      { id: 'f2', left: 'Pizza', right: 'Italy', leftEmoji: '🍕', rightEmoji: '🇮🇹' },
+      { id: 'f3', left: 'Tacos', right: 'Mexico', leftEmoji: '🌮', rightEmoji: '🇲🇽' },
+      { id: 'f4', left: 'Croissant', right: 'France', leftEmoji: '🥐', rightEmoji: '🇫🇷' },
+    ],
+  },
+  {
+    id: 'puzzle3',
+    category: 'music',
+    title: 'Match the Artist',
+    subtitle: 'Connect songs to their artists',
+    pairs: [
+      { id: 'm1', left: '"Bad Guy"', right: 'Billie Eilish', leftEmoji: '🎵', rightEmoji: '💚' },
+      { id: 'm2', left: '"Blinding Lights"', right: 'The Weeknd', leftEmoji: '💡', rightEmoji: '🌙' },
+      { id: 'm3', left: '"Shape of You"', right: 'Ed Sheeran', leftEmoji: '💃', rightEmoji: '🎸' },
+      { id: 'm4', left: '"Uptown Funk"', right: 'Bruno Mars', leftEmoji: '🕺', rightEmoji: '🎤' },
+    ],
+  },
+  {
+    id: 'puzzle4',
+    category: 'sports',
+    title: 'Match the Legend',
+    subtitle: 'Connect athletes to their sports',
+    pairs: [
+      { id: 's1', left: 'Michael Jordan', right: 'Basketball', leftEmoji: '🏀', rightEmoji: '🦅' },
+      { id: 's2', left: 'Lionel Messi', right: 'Soccer', leftEmoji: '⚽', rightEmoji: '🐐' },
+      { id: 's3', left: 'Serena Williams', right: 'Tennis', leftEmoji: '🎾', rightEmoji: '👑' },
+      { id: 's4', left: 'Usain Bolt', right: 'Track', leftEmoji: '🏃', rightEmoji: '⚡' },
+    ],
+  },
+];
+
+// Mixed question type for dynamic quiz flow
+export type QuestionType = 'swipe' | 'trivia' | 'quote' | 'priority' | 'puzzle' | 'musicChallenge';
+
+export interface MixedQuestion {
+  type: QuestionType;
+  id: string;
+  category: Category;
+  data: SwipeCard[] | TriviaQuestion | QuoteChallenge | PriorityRankingData | PuzzleMatchData | MusicChallenge;
+}
+
+export function generateMixedQuestions(selectedCategories: Category[], includeMusicChallenges: boolean): MixedQuestion[] {
+  const questions: MixedQuestion[] = [];
+  
+  // Add swipe cards (max 1 per relevant category)
+  selectedCategories.forEach(cat => {
+    const cards = SWIPE_CARDS[cat];
+    if (cards && cards.length > 0) {
+      questions.push({
+        type: 'swipe',
+        id: `swipe-${cat}`,
+        category: cat,
+        data: cards,
+      });
+    }
+  });
+  
+  // Add trivia questions (1 per category if available)
+  selectedCategories.forEach(cat => {
+    const trivia = TRIVIA_QUESTIONS.find(t => t.category === cat);
+    if (trivia) {
+      questions.push({
+        type: 'trivia',
+        id: trivia.id,
+        category: cat,
+        data: trivia,
+      });
+    }
+  });
+  
+  // Add quote challenges (1 if movies selected)
+  if (selectedCategories.includes('movies')) {
+    const quote = QUOTE_CHALLENGES.find(q => q.category === 'movies');
+    if (quote) {
+      questions.push({
+        type: 'quote',
+        id: quote.id,
+        category: 'movies',
+        data: quote,
+      });
+    }
+  }
+  
+  // Add priority rankings (1 per category if available)
+  selectedCategories.forEach(cat => {
+    const ranking = PRIORITY_RANKINGS.find(r => r.category === cat);
+    if (ranking) {
+      questions.push({
+        type: 'priority',
+        id: ranking.id,
+        category: cat,
+        data: ranking,
+      });
+    }
+  });
+  
+  // Add puzzle matches (1 per category if available)
+  selectedCategories.forEach(cat => {
+    const puzzle = PUZZLE_MATCHES.find(p => p.category === cat);
+    if (puzzle) {
+      questions.push({
+        type: 'puzzle',
+        id: puzzle.id,
+        category: cat,
+        data: puzzle,
+      });
+    }
+  });
+  
+  // Add music challenges if applicable
+  if (includeMusicChallenges && MUSIC_CHALLENGES.length > 0) {
+    questions.push({
+      type: 'musicChallenge',
+      id: MUSIC_CHALLENGES[0].id,
+      category: 'music',
+      data: MUSIC_CHALLENGES[0],
+    });
+  }
+  
+  // Shuffle questions but keep some order: swipes first, then mix others
+  const swipes = questions.filter(q => q.type === 'swipe');
+  const others = questions.filter(q => q.type !== 'swipe');
+  
+  // Shuffle non-swipe questions
+  for (let i = others.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [others[i], others[j]] = [others[j], others[i]];
+  }
+  
+  // Interleave: swipe, other, swipe, other...
+  const mixed: MixedQuestion[] = [];
+  const maxLen = Math.max(swipes.length, others.length);
+  for (let i = 0; i < maxLen; i++) {
+    if (swipes[i]) mixed.push(swipes[i]);
+    if (others[i]) mixed.push(others[i]);
+  }
+  
+  return mixed;
+}
+
 export function generateAvatarTraits(state: QuizState): string[] {
   const traits: string[] = [];
   

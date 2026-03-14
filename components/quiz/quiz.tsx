@@ -16,6 +16,8 @@ import {
   MusicChallenge as MusicChallengeType,
   MixedQuestion,
   generateMixedQuestions,
+  MoodBoardData,
+  ThisOrThatData,
 } from '@/lib/quiz-types';
 import { ProgressBar } from './progress-bar';
 import { WelcomeScreen } from './welcome-screen';
@@ -28,6 +30,9 @@ import { QuoteChallenge } from './quote-challenge';
 import { PriorityRanking } from './priority-ranking';
 import { PuzzleMatch } from './puzzle-match';
 import { GenerationScreen } from './generation-screen';
+import { WorldMap } from './world-map';
+import { MoodBoard } from './mood-board';
+import { ThisOrThat } from './this-or-that';
 
 type QuizPhase = 'welcome' | 'categories' | 'humor' | 'music' | 'questions' | 'generation';
 
@@ -292,6 +297,38 @@ export function Quiz() {
             }}
             onAnswer={handleQuoteAnswer}
             onNext={handleQuestionComplete}
+          />
+        );
+      
+      case 'worldMap':
+        return (
+          <WorldMap
+            key={currentQuestion.id}
+            onComplete={() => handleQuestionComplete()}
+          />
+        );
+      
+      case 'moodBoard':
+        const moodData = currentQuestion.data as MoodBoardData;
+        return (
+          <MoodBoard
+            key={currentQuestion.id}
+            title={moodData.title}
+            subtitle={moodData.subtitle}
+            options={moodData.options}
+            onComplete={() => handleQuestionComplete()}
+          />
+        );
+      
+      case 'thisOrThat':
+        const totData = currentQuestion.data as ThisOrThatData;
+        return (
+          <ThisOrThat
+            key={currentQuestion.id}
+            title={totData.title}
+            subtitle={totData.subtitle}
+            questions={totData.questions}
+            onComplete={() => handleQuestionComplete()}
           />
         );
       

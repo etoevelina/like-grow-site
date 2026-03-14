@@ -284,18 +284,261 @@ export const PUZZLE_MATCHES: PuzzleMatchData[] = [
   },
 ];
 
+// This or That Data
+export interface ThisOrThatData {
+  id: string;
+  title: string;
+  subtitle: string;
+  questions: {
+    id: string;
+    optionA: { label: string; emoji: string; value: string };
+    optionB: { label: string; emoji: string; value: string };
+  }[];
+}
+
+export const THIS_OR_THAT_SETS: ThisOrThatData[] = [
+  {
+    id: 'tot1',
+    title: 'Quick Picks',
+    subtitle: 'Choose your vibe',
+    questions: [
+      { id: 'tot1_1', optionA: { label: 'Morning Person', emoji: '🌅', value: 'morning' }, optionB: { label: 'Night Owl', emoji: '🌙', value: 'night' } },
+      { id: 'tot1_2', optionA: { label: 'Introvert', emoji: '📚', value: 'introvert' }, optionB: { label: 'Extrovert', emoji: '🎉', value: 'extrovert' } },
+      { id: 'tot1_3', optionA: { label: 'Planner', emoji: '📋', value: 'planner' }, optionB: { label: 'Spontaneous', emoji: '🎲', value: 'spontaneous' } },
+      { id: 'tot1_4', optionA: { label: 'Sweet', emoji: '🍰', value: 'sweet' }, optionB: { label: 'Savory', emoji: '🍕', value: 'savory' } },
+      { id: 'tot1_5', optionA: { label: 'Beach', emoji: '🏖️', value: 'beach' }, optionB: { label: 'Mountains', emoji: '🏔️', value: 'mountains' } },
+    ],
+  },
+  {
+    id: 'tot2',
+    title: 'Entertainment Vibes',
+    subtitle: 'How do you unwind?',
+    questions: [
+      { id: 'tot2_1', optionA: { label: 'Movies', emoji: '🎬', value: 'movies' }, optionB: { label: 'TV Series', emoji: '📺', value: 'series' } },
+      { id: 'tot2_2', optionA: { label: 'Reading', emoji: '📖', value: 'reading' }, optionB: { label: 'Gaming', emoji: '🎮', value: 'gaming' } },
+      { id: 'tot2_3', optionA: { label: 'Live Concert', emoji: '🎤', value: 'concert' }, optionB: { label: 'Chill Playlist', emoji: '🎧', value: 'playlist' } },
+      { id: 'tot2_4', optionA: { label: 'Solo Chill', emoji: '😌', value: 'solo' }, optionB: { label: 'Party Time', emoji: '🎊', value: 'party' } },
+    ],
+  },
+  {
+    id: 'tot3',
+    title: 'Social Style',
+    subtitle: 'Your social personality',
+    questions: [
+      { id: 'tot3_1', optionA: { label: 'Few Close Friends', emoji: '👯', value: 'close' }, optionB: { label: 'Big Friend Group', emoji: '👥', value: 'big' } },
+      { id: 'tot3_2', optionA: { label: 'Text First', emoji: '💬', value: 'text' }, optionB: { label: 'Call First', emoji: '📞', value: 'call' } },
+      { id: 'tot3_3', optionA: { label: 'Early to Events', emoji: '⏰', value: 'early' }, optionB: { label: 'Fashionably Late', emoji: '😎', value: 'late' } },
+    ],
+  },
+];
+
+// Mood Board Data
+export interface MoodBoardData {
+  id: string;
+  category: Category | 'general';
+  title: string;
+  subtitle: string;
+  options: {
+    id: string;
+    label: string;
+    image: string;
+    vibe: string;
+  }[];
+}
+
+export const MOOD_BOARDS: MoodBoardData[] = [
+  {
+    id: 'mood1',
+    category: 'general',
+    title: 'Pick Your Aesthetic',
+    subtitle: 'What visual vibe speaks to you?',
+    options: [
+      { id: 'aesthetic1', label: 'Dark Academia', image: 'https://images.unsplash.com/photo-1507842217343-583bb7270b66?w=400', vibe: 'Books & Mystery' },
+      { id: 'aesthetic2', label: 'Coastal Calm', image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400', vibe: 'Ocean & Serenity' },
+      { id: 'aesthetic3', label: 'Urban Edge', image: 'https://images.unsplash.com/photo-1514565131-fce0801e5785?w=400', vibe: 'City & Energy' },
+      { id: 'aesthetic4', label: 'Cottagecore', image: 'https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=400', vibe: 'Nature & Cozy' },
+      { id: 'aesthetic5', label: 'Y2K Futurism', image: 'https://images.unsplash.com/photo-1550745165-9bc0b252726f?w=400', vibe: 'Retro & Tech' },
+      { id: 'aesthetic6', label: 'Minimalist', image: 'https://images.unsplash.com/photo-1494438639946-1ebd1d20bf85?w=400', vibe: 'Clean & Simple' },
+    ],
+  },
+  {
+    id: 'mood2',
+    category: 'fashion',
+    title: 'Your Style Energy',
+    subtitle: 'Which outfit mood fits you?',
+    options: [
+      { id: 'style1', label: 'Street Casual', image: 'https://images.unsplash.com/photo-1552374196-1ab2a1c593e8?w=400', vibe: 'Comfy & Cool' },
+      { id: 'style2', label: 'Elegant Night', image: 'https://images.unsplash.com/photo-1490481651871-ab68de25d43d?w=400', vibe: 'Classy & Chic' },
+      { id: 'style3', label: 'Sporty Active', image: 'https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=400', vibe: 'Athletic & Fresh' },
+      { id: 'style4', label: 'Boho Free', image: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=400', vibe: 'Free & Artistic' },
+    ],
+  },
+  {
+    id: 'mood3',
+    category: 'travel',
+    title: 'Dream Destination Vibe',
+    subtitle: 'Where does your soul want to go?',
+    options: [
+      { id: 'dest1', label: 'Tropical Paradise', image: 'https://images.unsplash.com/photo-1506929562872-bb421503ef21?w=400', vibe: 'Sun & Relaxation' },
+      { id: 'dest2', label: 'European Romance', image: 'https://images.unsplash.com/photo-1502602898657-3e91760cbb34?w=400', vibe: 'Culture & History' },
+      { id: 'dest3', label: 'Mountain Escape', image: 'https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?w=400', vibe: 'Adventure & Peace' },
+      { id: 'dest4', label: 'Urban Exploration', image: 'https://images.unsplash.com/photo-1540959733332-eab4deabeeaf?w=400', vibe: 'Energy & Discovery' },
+    ],
+  },
+  {
+    id: 'mood4',
+    category: 'food',
+    title: 'Food Mood',
+    subtitle: 'What food aesthetic calls you?',
+    options: [
+      { id: 'foodm1', label: 'Cozy Comfort', image: 'https://images.unsplash.com/photo-1476718406336-bb5a9690ee2a?w=400', vibe: 'Warm & Homey' },
+      { id: 'foodm2', label: 'Fine Dining', image: 'https://images.unsplash.com/photo-1414235077428-338989a2e8c0?w=400', vibe: 'Elegant & Refined' },
+      { id: 'foodm3', label: 'Street Food', image: 'https://images.unsplash.com/photo-1565299624946-b28f40a0ae38?w=400', vibe: 'Authentic & Bold' },
+      { id: 'foodm4', label: 'Healthy Fresh', image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400', vibe: 'Clean & Vibrant' },
+    ],
+  },
+];
+
+// More Trivia Questions
+export const EXTENDED_TRIVIA: TriviaQuestion[] = [
+  ...TRIVIA_QUESTIONS,
+  { id: 'triv6', category: 'movies', question: 'Avatar (2009) took only 6 months to film', fact: 'It actually took over 4 years to complete!', isTrue: false },
+  { id: 'triv7', category: 'travel', question: 'There are more than 190 countries in the world', fact: 'There are 195 recognized sovereign nations!', isTrue: true },
+  { id: 'triv8', category: 'food', question: 'Wasabi is actually green-dyed horseradish in most restaurants', fact: 'Real wasabi is rare and expensive outside Japan!', isTrue: true },
+  { id: 'triv9', category: 'sports', question: 'The Olympics have been held on every continent', fact: 'Africa and Antarctica have never hosted!', isTrue: false },
+  { id: 'triv10', category: 'music', question: 'Spotify was launched in the United States first', fact: 'It launched in Sweden in 2008!', isTrue: false },
+  { id: 'triv11', category: 'fashion', question: 'High heels were originally designed for men', fact: 'Persian cavalry wore them to stay in stirrups!', isTrue: true },
+  { id: 'triv12', category: 'memes', question: 'The first meme was created in 2005', fact: 'Dancing Baby from 1996 is considered the first viral meme!', isTrue: false },
+  { id: 'triv13', category: 'movies', question: 'The Wilhelm scream has been used in over 400 films', fact: 'From Star Wars to Marvel, this iconic scream is everywhere!', isTrue: true },
+  { id: 'triv14', category: 'travel', question: 'Vatican City is the smallest country by area', fact: 'It covers only 0.44 square kilometers!', isTrue: true },
+  { id: 'triv15', category: 'food', question: 'Pineapple on pizza was invented in Hawaii', fact: 'It was actually invented in Canada by a Greek immigrant!', isTrue: false },
+  { id: 'triv16', category: 'sports', question: 'Golf is played on the Moon', fact: 'Alan Shepard hit two golf balls on the Moon in 1971!', isTrue: true },
+  { id: 'triv17', category: 'music', question: 'The longest song ever recorded is over 24 hours long', fact: 'Longplayer by Jem Finer plays for 1000 years without repeating!', isTrue: true },
+  { id: 'triv18', category: 'travel', question: 'Australia is wider than the Moon', fact: 'Australia is ~4000km wide, the Moon is ~3400km in diameter!', isTrue: true },
+  { id: 'triv19', category: 'food', question: 'Carrots were originally purple', fact: 'Dutch growers bred orange carrots in the 17th century!', isTrue: true },
+  { id: 'triv20', category: 'movies', question: 'The Godfather used real horse head in the famous scene', fact: 'It came from a dog food company!', isTrue: true },
+];
+
+// More Quote Challenges
+export const EXTENDED_QUOTES: QuoteChallenge[] = [
+  ...QUOTE_CHALLENGES,
+  { id: 'quote6', category: 'movies', quote: 'Why so ___?', missingWord: 'serious', options: ['serious', 'angry', 'quiet', 'sad'], source: 'The Dark Knight' },
+  { id: 'quote7', category: 'movies', quote: 'You shall not ___!', missingWord: 'pass', options: ['pass', 'fail', 'enter', 'leave'], source: 'Lord of the Rings' },
+  { id: 'quote8', category: 'music', quote: 'Hello from the other ___', missingWord: 'side', options: ['side', 'world', 'place', 'life'], source: 'Adele' },
+  { id: 'quote9', category: 'memes', quote: 'One does not simply ___ into Mordor', missingWord: 'walk', options: ['walk', 'go', 'run', 'drive'], source: 'Lord of the Rings meme' },
+  { id: 'quote10', category: 'movies', quote: 'With great power comes great ___', missingWord: 'responsibility', options: ['responsibility', 'danger', 'strength', 'courage'], source: 'Spider-Man' },
+  { id: 'quote11', category: 'movies', quote: 'I see ___ people', missingWord: 'dead', options: ['dead', 'strange', 'angry', 'ghost'], source: 'The Sixth Sense' },
+  { id: 'quote12', category: 'memes', quote: 'Is this a ___?', missingWord: 'pigeon', options: ['pigeon', 'butterfly', 'bird', 'joke'], source: 'Is This a Pigeon?' },
+  { id: 'quote13', category: 'music', quote: 'I will always ___ you', missingWord: 'love', options: ['love', 'need', 'want', 'miss'], source: 'Whitney Houston' },
+];
+
+// Extended Music Challenges
+export const EXTENDED_MUSIC: MusicChallenge[] = [
+  ...MUSIC_CHALLENGES,
+  { id: 'mus4', lyric: '"Is it too late now to say ___?"', artist: 'Justin Bieber', song: 'Sorry', options: ['sorry', 'goodbye', 'hello', 'please'], correctAnswer: 'sorry' },
+  { id: 'mus5', lyric: '"I got my mind on my ___ and my ___ on my mind"', artist: 'Snoop Dogg', song: 'Gin and Juice', options: ['money, money', 'music, music', 'game, game', 'life, life'], correctAnswer: 'money, money' },
+  { id: 'mus6', lyric: '"Somebody once told me the world is gonna ___ me"', artist: 'Smash Mouth', song: 'All Star', options: ['roll', 'save', 'help', 'change'], correctAnswer: 'roll' },
+  { id: 'mus7', lyric: '"I came in like a ___ ball"', artist: 'Miley Cyrus', song: 'Wrecking Ball', options: ['wrecking', 'cannon', 'beach', 'disco'], correctAnswer: 'wrecking' },
+  { id: 'mus8', lyric: '"Uptown ___ gonna give it to ya"', artist: 'Bruno Mars', song: 'Uptown Funk', options: ['funk', 'love', 'style', 'beat'], correctAnswer: 'funk' },
+];
+
 // Mixed question type for dynamic quiz flow
-export type QuestionType = 'swipe' | 'trivia' | 'quote' | 'priority' | 'puzzle' | 'musicChallenge';
+export type QuestionType = 'swipe' | 'trivia' | 'quote' | 'priority' | 'puzzle' | 'musicChallenge' | 'worldMap' | 'moodBoard' | 'thisOrThat';
 
 export interface MixedQuestion {
   type: QuestionType;
   id: string;
-  category: Category;
-  data: SwipeCard[] | TriviaQuestion | QuoteChallenge | PriorityRankingData | PuzzleMatchData | MusicChallenge;
+  category: Category | 'general';
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  data: any;
+}
+
+// Smart shuffle to avoid consecutive same types
+function smartShuffle(questions: MixedQuestion[]): MixedQuestion[] {
+  if (questions.length <= 1) return questions;
+  
+  const result: MixedQuestion[] = [];
+  const remaining = [...questions];
+  
+  // Pick first randomly
+  const firstIdx = Math.floor(Math.random() * remaining.length);
+  result.push(remaining.splice(firstIdx, 1)[0]);
+  
+  while (remaining.length > 0) {
+    const lastType = result[result.length - 1].type;
+    
+    // Find questions with different type
+    const differentType = remaining.filter(q => q.type !== lastType);
+    
+    if (differentType.length > 0) {
+      // Pick randomly from different types
+      const idx = Math.floor(Math.random() * differentType.length);
+      const picked = differentType[idx];
+      remaining.splice(remaining.indexOf(picked), 1);
+      result.push(picked);
+    } else {
+      // No choice, must use same type
+      const idx = Math.floor(Math.random() * remaining.length);
+      result.push(remaining.splice(idx, 1)[0]);
+    }
+  }
+  
+  return result;
 }
 
 export function generateMixedQuestions(selectedCategories: Category[], includeMusicChallenges: boolean): MixedQuestion[] {
   const questions: MixedQuestion[] = [];
+  
+  // Add world map if travel selected
+  if (selectedCategories.includes('travel')) {
+    questions.push({
+      type: 'worldMap',
+      id: 'worldmap-travel',
+      category: 'travel',
+      data: null,
+    });
+  }
+  
+  // Add mood boards (general aesthetic + category specific)
+  const generalMood = MOOD_BOARDS.find(m => m.category === 'general');
+  if (generalMood) {
+    questions.push({
+      type: 'moodBoard',
+      id: generalMood.id,
+      category: 'general',
+      data: generalMood,
+    });
+  }
+  
+  selectedCategories.forEach(cat => {
+    const mood = MOOD_BOARDS.find(m => m.category === cat);
+    if (mood) {
+      questions.push({
+        type: 'moodBoard',
+        id: mood.id,
+        category: cat,
+        data: mood,
+      });
+    }
+  });
+  
+  // Add this-or-that (personality questions)
+  questions.push({
+    type: 'thisOrThat',
+    id: THIS_OR_THAT_SETS[0].id,
+    category: 'general',
+    data: THIS_OR_THAT_SETS[0],
+  });
+  
+  // Add second this-or-that for entertainment
+  if (selectedCategories.some(c => ['movies', 'music', 'memes'].includes(c))) {
+    questions.push({
+      type: 'thisOrThat',
+      id: THIS_OR_THAT_SETS[1].id,
+      category: 'general',
+      data: THIS_OR_THAT_SETS[1],
+    });
+  }
   
   // Add swipe cards (max 1 per relevant category)
   selectedCategories.forEach(cat => {
@@ -310,30 +553,43 @@ export function generateMixedQuestions(selectedCategories: Category[], includeMu
     }
   });
   
-  // Add trivia questions (1 per category if available)
+  // Add trivia questions (1-2 per category if available)
   selectedCategories.forEach(cat => {
-    const trivia = TRIVIA_QUESTIONS.find(t => t.category === cat);
-    if (trivia) {
+    const trivias = EXTENDED_TRIVIA.filter(t => t.category === cat);
+    trivias.slice(0, 2).forEach(trivia => {
       questions.push({
         type: 'trivia',
         id: trivia.id,
         category: cat,
         data: trivia,
       });
-    }
+    });
   });
   
-  // Add quote challenges (1 if movies selected)
+  // Add quote challenges (multiple if movies selected)
   if (selectedCategories.includes('movies')) {
-    const quote = QUOTE_CHALLENGES.find(q => q.category === 'movies');
-    if (quote) {
+    const quotes = EXTENDED_QUOTES.filter(q => q.category === 'movies');
+    quotes.slice(0, 2).forEach(quote => {
       questions.push({
         type: 'quote',
         id: quote.id,
         category: 'movies',
         data: quote,
       });
-    }
+    });
+  }
+  
+  // Add meme quotes if memes selected
+  if (selectedCategories.includes('memes')) {
+    const memeQuotes = EXTENDED_QUOTES.filter(q => q.category === 'memes');
+    memeQuotes.forEach(quote => {
+      questions.push({
+        type: 'quote',
+        id: quote.id,
+        category: 'memes',
+        data: quote,
+      });
+    });
   }
   
   // Add priority rankings (1 per category if available)
@@ -363,34 +619,29 @@ export function generateMixedQuestions(selectedCategories: Category[], includeMu
   });
   
   // Add music challenges if applicable
-  if (includeMusicChallenges && MUSIC_CHALLENGES.length > 0) {
-    questions.push({
-      type: 'musicChallenge',
-      id: MUSIC_CHALLENGES[0].id,
-      category: 'music',
-      data: MUSIC_CHALLENGES[0],
+  if (includeMusicChallenges && EXTENDED_MUSIC.length > 0) {
+    // Add 2-3 music challenges
+    const musicChallenges = EXTENDED_MUSIC.slice(0, 3);
+    musicChallenges.forEach(challenge => {
+      questions.push({
+        type: 'musicChallenge',
+        id: challenge.id,
+        category: 'music',
+        data: challenge,
+      });
     });
   }
   
-  // Shuffle questions but keep some order: swipes first, then mix others
-  const swipes = questions.filter(q => q.type === 'swipe');
-  const others = questions.filter(q => q.type !== 'swipe');
+  // Add social style questions
+  questions.push({
+    type: 'thisOrThat',
+    id: THIS_OR_THAT_SETS[2].id,
+    category: 'general',
+    data: THIS_OR_THAT_SETS[2],
+  });
   
-  // Shuffle non-swipe questions
-  for (let i = others.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [others[i], others[j]] = [others[j], others[i]];
-  }
-  
-  // Interleave: swipe, other, swipe, other...
-  const mixed: MixedQuestion[] = [];
-  const maxLen = Math.max(swipes.length, others.length);
-  for (let i = 0; i < maxLen; i++) {
-    if (swipes[i]) mixed.push(swipes[i]);
-    if (others[i]) mixed.push(others[i]);
-  }
-  
-  return mixed;
+  // Smart shuffle to avoid consecutive same types
+  return smartShuffle(questions);
 }
 
 export function generateAvatarTraits(state: QuizState): string[] {

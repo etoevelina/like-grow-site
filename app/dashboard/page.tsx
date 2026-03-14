@@ -11,7 +11,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useSocket, ContentSubmitResult } from '@/hooks/use-socket';
-import { getAvatar, Avatar, AvatarProfile, AvatarState, saveAvatarData } from '@/lib/avatar-api';
+import { getAvatar, Avatar, AvatarProfile, AvatarState, saveAvatarData, getSavedPosts, SavedPost } from '@/lib/avatar-api';
 import { Button } from '@/components/ui/button';
 import {
   Sheet,
@@ -50,6 +50,13 @@ export default function DashboardPage() {
   // Feed tab state
   const [postUrl, setPostUrl] = useState('');
   const [history, setHistory] = useState<HistoryItem[]>([]);
+  
+  // Saved posts from API
+  const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);
+  const [savedPostsTotal, setSavedPostsTotal] = useState(0);
+  const [savedPostsLoading, setSavedPostsLoading] = useState(false);
+  const [savedPostsOffset, setSavedPostsOffset] = useState(0);
+  const POSTS_PER_PAGE = 20;
 
   // New user flow - shutter state
   const [isNewUser, setIsNewUser] = useState(false);
@@ -73,19 +80,20 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
   }, [profile]);
 
   const handleContentResult = useCallback((result: ContentSubmitResult & { url?: string }) => {
-    // Update history item
-    setHistory(prev => prev.map(item => {
-      if (item.status === 'processing') {
-        return {
-          ...item,
-          status: result.ok ? 'success' : 'error',
-          xp: result.xp || 0,
-          coins: result.coins || 0,
-          error: result.error,
-        };
-      }
-      return item;
-    }));
+    // Remove processing item from history (it's now in saved posts)
+    setHistory(prev => prev.filter(item => item.status !== 'processing' || item.url !== result.url));
+    
+    // If successful, refresh saved posts from API
+    if (result.ok) {
+      // Re-fetch saved posts to include the new one
+      getSavedPosts(POSTS_PER_PAGE, 0).then(postsResult => {
+        if (postsResult.success && postsResult.data) {
+          setSavedPosts(postsResult.data.posts);
+          setSavedPostsTotal(postsResult.data.total);
+          setSavedPostsOffset(0);
+        }
+      });
+    }
   }, []);
 
   const { isConnected, isSubmitting, submitPost } = useSocket(handleAvatarUpdate, handleContentResult);
@@ -167,6 +175,30 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
 
     return () => clearInterval(pollInterval);
   }, [isNewUser, avatarReady, avatarLoading]);
+
+  // Fetch saved posts when switching to feed tab
+  const fetchSavedPosts = async (loadMore = false) => {
+    setSavedPostsLoading(true);
+    const offset = loadMore ? savedPostsOffset + POSTS_PER_PAGE : 0;
+    
+    const result = await getSavedPosts(POSTS_PER_PAGE, offset);
+    if (result.success && result.data) {
+      if (loadMore) {
+        setSavedPosts(prev => [...prev, ...result.data!.posts]);
+      } else {
+        setSavedPosts(result.data.posts);
+      }
+      setSavedPostsTotal(result.data.total);
+      setSavedPostsOffset(offset);
+    }
+    setSavedPostsLoading(false);
+  };
+
+  useEffect(() => {
+    if (activeTab === 'feed' && savedPosts.length === 0 && mounted && user) {
+      fetchSavedPosts();
+    }
+  }, [activeTab, mounted, user]);
 
   const handleSubmitPost = async () => {
     if (!postUrl.trim()) return;
@@ -638,88 +670,111 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
               <div className="mb-6">
                 <h1 className="text-2xl font-bold text-foreground mb-1">Activity History</h1>
                 <p className="text-sm text-muted-foreground">
-                  Your submitted posts and earned rewards
+                  {savedPostsTotal} posts saved
                 </p>
               </div>
 
-              {/* History */}
+              {/* Processing items (current session) */}
+              {history.filter(h => h.status === 'processing').length > 0 && (
+                <div className="mb-6">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                    <span className="text-xs font-medium text-muted-foreground">Processing</span>
+                  </div>
+                  <div className="space-y-2">
+                    {history.filter(h => h.status === 'processing').map((item) => (
+                      <div
+                        key={item.id}
+                        className="p-3 rounded-xl bg-card border border-border"
+                      >
+                        <p className="text-xs text-muted-foreground truncate">{item.url}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Saved Posts from API */}
               <div>
                 <div className="flex items-center gap-2 mb-4">
                   <Clock className="w-4 h-4 text-muted-foreground" />
-                  <h2 className="text-sm font-medium text-muted-foreground">Recent Activity</h2>
+                  <h2 className="text-sm font-medium text-muted-foreground">Saved Posts</h2>
                 </div>
 
-                {history.length === 0 ? (
+                {savedPostsLoading && savedPosts.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Loader2 className="w-8 h-8 mx-auto text-primary animate-spin" />
+                  </div>
+                ) : savedPosts.length === 0 ? (
                   <div className="text-center py-12 text-muted-foreground">
                     <ListPlus className="w-12 h-12 mx-auto mb-3 opacity-30" />
                     <p className="text-sm">No content yet</p>
-                    <p className="text-xs mt-1">Paste a link above to get started</p>
+                    <p className="text-xs mt-1">Go to Home and paste a link to get started</p>
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {history.map((item) => (
+                    {savedPosts.map((post) => (
                       <motion.div
-                        key={item.id}
+                        key={post.id}
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
-                        className={`p-4 rounded-2xl border ${
-                          item.status === 'processing'
-                            ? 'bg-card border-border'
-                            : item.status === 'success'
-                            ? 'bg-green-500/5 border-green-500/20'
-                            : 'bg-red-500/5 border-red-500/20'
-                        }`}
+                        className="p-4 rounded-2xl bg-card border border-border"
                       >
                         <div className="flex items-start gap-3">
                           <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                            item.status === 'processing'
-                              ? 'bg-primary/20'
-                              : item.status === 'success'
-                              ? 'bg-green-500/20'
-                              : 'bg-red-500/20'
+                            post.platform === 'tiktok' ? 'bg-pink-500/20' : 'bg-purple-500/20'
                           }`}>
-                            {item.status === 'processing' ? (
-                              <Loader2 className="w-5 h-5 text-primary animate-spin" />
-                            ) : item.status === 'success' ? (
-                              <CheckCircle2 className="w-5 h-5 text-green-500" />
+                            {post.platform === 'tiktok' ? (
+                              <svg className="w-5 h-5 text-pink-500" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"/>
+                              </svg>
                             ) : (
-                              <X className="w-5 h-5 text-red-500" />
+                              <svg className="w-5 h-5 text-purple-500" viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2c2.717 0 3.056.01 4.122.06 1.065.05 1.79.217 2.428.465.66.254 1.216.598 1.772 1.153a4.908 4.908 0 011.153 1.772c.247.637.415 1.363.465 2.428.047 1.066.06 1.405.06 4.122 0 2.717-.01 3.056-.06 4.122-.05 1.065-.218 1.79-.465 2.428a4.883 4.883 0 01-1.153 1.772 4.915 4.915 0 01-1.772 1.153c-.637.247-1.363.415-2.428.465-1.066.047-1.405.06-4.122.06-2.717 0-3.056-.01-4.122-.06-1.065-.05-1.79-.218-2.428-.465a4.89 4.89 0 01-1.772-1.153 4.904 4.904 0 01-1.153-1.772c-.248-.637-.415-1.363-.465-2.428C2.013 15.056 2 14.717 2 12c0-2.717.01-3.056.06-4.122.05-1.066.217-1.79.465-2.428a4.88 4.88 0 011.153-1.772A4.897 4.897 0 015.45 2.525c.638-.248 1.362-.415 2.428-.465C8.944 2.013 9.283 2 12 2zm0 5a5 5 0 100 10 5 5 0 000-10zm6.5-.25a1.25 1.25 0 10-2.5 0 1.25 1.25 0 002.5 0zM12 9a3 3 0 110 6 3 3 0 010-6z"/>
+                              </svg>
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="text-xs font-medium text-muted-foreground">
-                                {extractDomain(item.url)}
+                            <div className="flex items-center justify-between mb-1">
+                              <span className="text-xs font-medium text-muted-foreground capitalize">
+                                {post.platform}
                               </span>
-                              <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                              <span className="text-xs text-muted-foreground">
+                                {new Date(post.created_at).toLocaleDateString()}
+                              </span>
                             </div>
-                            <p className="text-xs text-muted-foreground truncate mb-2">
-                              {item.url}
-                            </p>
-                            {item.status === 'success' && (
-                              <div className="flex items-center gap-3">
-                                <span className="text-sm font-medium text-accent">
-                                  +{item.xp} XP
-                                </span>
-                                <span className="text-sm font-medium text-yellow-500">
-                                  +{item.coins} coins
-                                </span>
-                              </div>
-                            )}
-                            {item.status === 'processing' && (
-                              <p className="text-xs text-muted-foreground">
-                                Processing... this may take 1-2 minutes
+                            {post.description && (
+                              <p className="text-sm text-foreground mb-2 line-clamp-2">
+                                {post.description}
                               </p>
                             )}
-                            {item.status === 'error' && (
-                              <p className="text-xs text-red-400">
-                                {item.error || 'Failed to process'}
-                              </p>
-                            )}
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm font-medium text-accent">
+                                +{post.xp} XP
+                              </span>
+                              <span className="text-sm font-medium text-yellow-500">
+                                +{post.coins} coins
+                              </span>
+                            </div>
                           </div>
                         </div>
                       </motion.div>
                     ))}
+
+                    {/* Load more button */}
+                    {savedPosts.length < savedPostsTotal && (
+                      <Button
+                        onClick={() => fetchSavedPosts(true)}
+                        disabled={savedPostsLoading}
+                        variant="outline"
+                        className="w-full rounded-xl"
+                      >
+                        {savedPostsLoading ? (
+                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                        ) : null}
+                        Load more
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>

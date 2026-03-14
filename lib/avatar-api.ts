@@ -259,6 +259,56 @@ export async function submitContent(url: string): Promise<{
   }
 }
 
+// Saved posts types
+export interface SavedPost {
+  id: number;
+  post_url: string;
+  platform: 'tiktok' | 'instagram';
+  caption: string;
+  description: string;
+  xp: number;
+  coins: number;
+  created_at: string;
+}
+
+export interface SavedPostsResponse {
+  posts: SavedPost[];
+  total: number;
+  limit: number;
+  offset: number;
+}
+
+// Get saved posts
+export async function getSavedPosts(limit: number = 20, offset: number = 0): Promise<{
+  success: boolean;
+  data?: SavedPostsResponse;
+  error?: string;
+}> {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const response = await fetch(`${API_BASE}/api/content/posts?limit=${limit}&offset=${offset}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.error || 'Failed to get posts' };
+    }
+
+    return { success: true, data };
+  } catch {
+    return { success: false, error: 'Network error. Please try again.' };
+  }
+}
+
 // Get avatar history
 export interface EvolutionHistoryItem {
   image_url: string;

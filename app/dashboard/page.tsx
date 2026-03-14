@@ -371,6 +371,44 @@ export default function DashboardPage() {
                 </motion.div>
               )}
 
+              {/* Feed Widget */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3 }}
+                className="glass-card rounded-2xl p-4 mb-6"
+              >
+                <div className="flex items-center gap-2 mb-3">
+                  <Link2 className="w-4 h-4 text-primary" />
+                  <span className="text-sm font-medium text-foreground">Feed your avatar</span>
+                </div>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={postUrl}
+                    onChange={(e) => setPostUrl(e.target.value)}
+                    placeholder="Paste TikTok or Instagram link..."
+                    className="flex-1 px-3 py-2 bg-input border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    onKeyDown={(e) => e.key === 'Enter' && handleSubmitPost()}
+                  />
+                  <Button
+                    onClick={handleSubmitPost}
+                    disabled={!postUrl.trim() || isSubmitting || !isConnected}
+                    size="sm"
+                    className="rounded-xl bg-primary text-primary-foreground px-4"
+                  >
+                    {isSubmitting ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <Send className="w-4 h-4" />
+                    )}
+                  </Button>
+                </div>
+                {!isConnected && (
+                  <p className="text-xs text-destructive mt-2">Connecting...</p>
+                )}
+              </motion.div>
+
               {/* Account Info */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
@@ -414,47 +452,10 @@ export default function DashboardPage() {
             >
               {/* Feed Header */}
               <div className="mb-6">
-                <h1 className="text-2xl font-bold text-foreground mb-1">Feed Your Avatar</h1>
+                <h1 className="text-2xl font-bold text-foreground mb-1">Activity History</h1>
                 <p className="text-sm text-muted-foreground">
-                  Paste TikTok or Instagram links to earn XP and coins
+                  Your submitted posts and earned rewards
                 </p>
-              </div>
-
-              {/* URL Input */}
-              <div className="mb-6">
-                <div className="relative mb-3">
-                  <Link2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                  <input
-                    type="url"
-                    value={postUrl}
-                    onChange={(e) => setPostUrl(e.target.value)}
-                    placeholder="https://www.tiktok.com/..."
-                    className="w-full pl-12 pr-4 py-4 bg-card border border-border rounded-2xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                    onKeyDown={(e) => e.key === 'Enter' && handleSubmitPost()}
-                  />
-                </div>
-                <Button
-                  onClick={handleSubmitPost}
-                  disabled={!postUrl.trim() || isSubmitting || !isConnected}
-                  className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-semibold gap-2"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <Loader2 className="w-5 h-5 animate-spin" />
-                      Processing...
-                    </>
-                  ) : (
-                    <>
-                      <Send className="w-5 h-5" />
-                      Submit Link
-                    </>
-                  )}
-                </Button>
-                {!isConnected && (
-                  <p className="text-xs text-destructive text-center mt-2">
-                    Connecting to server...
-                  </p>
-                )}
               </div>
 
               {/* History */}

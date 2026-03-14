@@ -29,12 +29,13 @@ import { TriviaStep } from './trivia-step';
 import { QuoteChallenge } from './quote-challenge';
 import { PriorityRanking } from './priority-ranking';
 import { PuzzleMatch } from './puzzle-match';
-import { GenerationScreen } from './generation-screen';
 import { WorldMap } from './world-map';
 import { MoodBoard } from './mood-board';
 import { ThisOrThat } from './this-or-that';
+import { MagicTransition } from './magic-transition';
+import { AuthScreen } from './auth-screen';
 
-type QuizPhase = 'welcome' | 'categories' | 'humor' | 'music' | 'questions' | 'generation';
+type QuizPhase = 'welcome' | 'categories' | 'humor' | 'music' | 'questions' | 'magic' | 'auth';
 
 export function Quiz() {
   const [currentPhase, setCurrentPhase] = useState<QuizPhase>('welcome');
@@ -133,7 +134,8 @@ export function Quiz() {
       setQuestionIndex(0);
       setCurrentPhase('questions');
     } else {
-      setCurrentPhase('generation');
+      // No questions, go straight to magic transition
+      setCurrentPhase('magic');
     }
   };
 
@@ -141,8 +143,13 @@ export function Quiz() {
     if (questionIndex < mixedQuestions.length - 1) {
       setQuestionIndex(prev => prev + 1);
     } else {
-      setCurrentPhase('generation');
+      // Last question completed - show magic transition
+      setCurrentPhase('magic');
     }
+  };
+
+  const handleMagicComplete = () => {
+    setCurrentPhase('auth');
   };
 
   // Handlers for different question types
@@ -207,8 +214,8 @@ export function Quiz() {
     window.location.href = '/dashboard';
   };
 
-  const showBackButton = currentPhase !== 'welcome' && currentPhase !== 'generation';
-  const showProgress = currentPhase !== 'welcome' && currentPhase !== 'generation';
+  const showBackButton = currentPhase !== 'welcome' && currentPhase !== 'magic' && currentPhase !== 'auth';
+  const showProgress = currentPhase !== 'welcome' && currentPhase !== 'magic' && currentPhase !== 'auth';
   const progress = calculateProgress();
 
   const getCategoryLabel = (category: Category) => {
@@ -424,12 +431,22 @@ export function Quiz() {
             </motion.div>
           )}
 
-          {currentPhase === 'generation' && (
-            <GenerationScreen
-              key="generation"
-              quizState={quizState}
-              onComplete={handleComplete}
+          {currentPhase === 'magic' && (
+            <MagicTransition
+              key="magic"
+              onComplete={handleMagicComplete}
             />
+          )}
+
+          {currentPhase === 'auth' && (
+            <motion.div
+              key="auth"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="min-h-screen"
+            >
+              <AuthScreen onComplete={handleComplete} />
+            </motion.div>
           )}
         </AnimatePresence>
       </div>

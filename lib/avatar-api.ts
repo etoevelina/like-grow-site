@@ -88,13 +88,9 @@ export async function createAvatar(quizAnswers: QuizAnswer[]): Promise<{
     
     // If no token, use mock data for demo
     if (!token) {
-      console.log('[v0] No auth token, using mock avatar data');
       const mockData = getMockAvatarData(quizAnswers);
       return { success: true, data: mockData };
     }
-
-    console.log('[v0] Creating avatar with token:', token.substring(0, 20) + '...');
-    console.log('[v0] Quiz answers:', JSON.stringify(quizAnswers, null, 2));
 
     const response = await fetch(`${API_BASE}/api/avatar/quiz`, {
       method: 'POST',
@@ -107,23 +103,17 @@ export async function createAvatar(quizAnswers: QuizAnswer[]): Promise<{
       }),
     });
 
-    console.log('[v0] API response status:', response.status);
-
     const data = await response.json();
-    console.log('[v0] API response data:', JSON.stringify(data, null, 2));
 
     if (!response.ok) {
       // If API fails, use mock data as fallback for demo
-      console.log('[v0] API failed, using mock data as fallback');
       const mockData = getMockAvatarData(quizAnswers);
       return { success: true, data: mockData };
     }
 
     return { success: true, data };
-  } catch (error) {
-    console.error('[v0] Create avatar error:', error);
+  } catch {
     // Use mock data as fallback
-    console.log('[v0] Network error, using mock data as fallback');
     const mockData = getMockAvatarData(quizAnswers);
     return { success: true, data: mockData };
   }

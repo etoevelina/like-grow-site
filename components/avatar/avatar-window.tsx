@@ -320,35 +320,6 @@ export function AvatarWindow({ avatar, profile, onContinue }: AvatarWindowProps)
               </div>
             </div>
 
-            {/* Personality */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.4 }}
-              className="mt-4 p-4 rounded-2xl bg-card border border-border"
-            >
-              <p className="text-sm text-muted-foreground text-center leading-relaxed">
-                {profile.personality_description}
-              </p>
-            </motion.div>
-
-            {/* Interests */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.5 }}
-              className="mt-4 flex flex-wrap justify-center gap-2"
-            >
-              {profile.interests.slice(0, 5).map((interest, i) => (
-                <span
-                  key={i}
-                  className="px-3 py-1 text-xs rounded-full bg-primary/10 text-primary border border-primary/20"
-                >
-                  {interest}
-                </span>
-              ))}
-            </motion.div>
-
             {/* Continue button */}
             <motion.div
               initial={{ opacity: 0, y: 20 }}

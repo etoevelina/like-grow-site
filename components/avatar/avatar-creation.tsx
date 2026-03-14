@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronLeft, Share2, TrendingUp, Coins, Skull, Sparkles, Check } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Share2, TrendingUp, Coins, Skull, Sparkles, Check, Baby } from 'lucide-react';
 import { createAvatar, formatQuizAnswers, Avatar, AvatarProfile, QuizAnswer } from '@/lib/avatar-api';
 import { QuizState } from '@/lib/quiz-types';
 import { Button } from '@/components/ui/button';
@@ -16,35 +16,43 @@ interface AvatarCreationProps {
 // Onboarding slides explaining the app mechanics
 const ONBOARDING_SLIDES = [
   {
+    id: 'newborn',
+    icon: Baby,
+    title: 'A New Life Begins',
+    description: 'Your avatar is like a newborn - a blank canvas ready to grow. Right now, they are just taking their first breath in this digital world.',
+    highlight: 'Who they become depends entirely on you',
+    color: 'primary',
+  },
+  {
     id: 'share',
     icon: Share2,
-    title: 'Share Your Content',
-    description: 'Share videos from Instagram and TikTok with your avatar. We analyze what you save and watch to understand your unique personality.',
-    highlight: 'Every post shapes who your avatar becomes',
-    color: 'primary',
+    title: 'Feed Them Content',
+    description: 'Share videos from Instagram and TikTok. Every piece of content you save shapes their personality, interests, and appearance.',
+    highlight: 'Fitness posts = muscular. Travel = explorer. Fashion = stylish',
+    color: 'accent',
   },
   {
     id: 'grow',
     icon: TrendingUp,
-    title: 'Watch Them Grow',
-    description: 'Your avatar earns XP from every piece of content you share. Level up and unlock new animations, outfits, and abilities.',
-    highlight: 'Fitness posts = muscular avatar. Travel posts = explorer avatar',
-    color: 'accent',
+    title: 'Level Up System',
+    description: 'Each post earns XP. Watch your avatar evolve from a Seedling to a Legend through 10 unique levels. Higher levels unlock new animations and abilities.',
+    highlight: 'Seedling > Sprout > Bloom > ... > Legend',
+    color: 'cyan',
   },
   {
     id: 'earn',
     icon: Coins,
     title: 'Earn Coins',
-    description: 'Each post also earns coins! Spend them in the shop to customize your avatar with exclusive items and accessories.',
-    highlight: 'Your content has real value here',
+    description: 'Every post also earns coins! Use them in the shop to buy accessories, outfits, and special items for your avatar.',
+    highlight: 'Your content taste has real value here',
     color: 'yellow',
   },
   {
     id: 'warning',
     icon: Skull,
     title: 'Keep Them Alive',
-    description: 'Your avatar needs you! Without fresh content, they will slowly degrade and eventually... fade away.',
-    highlight: 'This shows how social media truly affects us',
+    description: 'Without fresh content, your avatar gets lonely. They will start to degrade, lose energy, and eventually... fade away forever.',
+    highlight: 'A mirror of how content consumption affects us all',
     color: 'destructive',
   },
 ];
@@ -111,6 +119,7 @@ export function AvatarCreation({ quizState, onComplete, onError }: AvatarCreatio
     switch (color) {
       case 'primary': return 'text-primary bg-primary/10 border-primary/20';
       case 'accent': return 'text-accent bg-accent/10 border-accent/20';
+      case 'cyan': return 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20';
       case 'yellow': return 'text-yellow-500 bg-yellow-500/10 border-yellow-500/20';
       case 'destructive': return 'text-destructive bg-destructive/10 border-destructive/20';
       default: return 'text-primary bg-primary/10 border-primary/20';
@@ -121,6 +130,7 @@ export function AvatarCreation({ quizState, onComplete, onError }: AvatarCreatio
     switch (color) {
       case 'primary': return 'oklch(0.7 0.2 320 / 0.3)';
       case 'accent': return 'oklch(0.65 0.18 145 / 0.3)';
+      case 'cyan': return 'oklch(0.7 0.18 200 / 0.3)';
       case 'yellow': return 'oklch(0.8 0.15 85 / 0.3)';
       case 'destructive': return 'oklch(0.6 0.22 25 / 0.3)';
       default: return 'oklch(0.7 0.2 320 / 0.3)';

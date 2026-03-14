@@ -35,7 +35,7 @@ import { ThisOrThat } from './this-or-that';
 import { MagicTransition } from './magic-transition';
 import { AuthScreen } from './auth-screen';
 
-type QuizPhase = 'welcome' | 'categories' | 'humor' | 'music' | 'questions' | 'magic' | 'auth';
+type QuizPhase = 'welcome' | 'categories' | 'humor' | 'music' | 'questions' | 'magic' | 'auth' | 'login';
 
 export function Quiz() {
   const [currentPhase, setCurrentPhase] = useState<QuizPhase>('welcome');
@@ -78,6 +78,10 @@ export function Quiz() {
 
   const handleStart = () => {
     setCurrentPhase('categories');
+  };
+
+  const handleLoginClick = () => {
+    setCurrentPhase('login');
   };
 
   const handleToggleCategory = (category: Category) => {
@@ -214,8 +218,8 @@ export function Quiz() {
     window.location.href = '/dashboard';
   };
 
-  const showBackButton = currentPhase !== 'welcome' && currentPhase !== 'magic' && currentPhase !== 'auth';
-  const showProgress = currentPhase !== 'welcome' && currentPhase !== 'magic' && currentPhase !== 'auth';
+  const showBackButton = currentPhase !== 'welcome' && currentPhase !== 'magic' && currentPhase !== 'auth' && currentPhase !== 'login';
+  const showProgress = currentPhase !== 'welcome' && currentPhase !== 'magic' && currentPhase !== 'auth' && currentPhase !== 'login';
   const progress = calculateProgress();
 
   const getCategoryLabel = (category: Category) => {
@@ -377,7 +381,7 @@ export function Quiz() {
       <div className={showProgress ? 'pt-24' : ''}>
         <AnimatePresence mode="wait">
           {currentPhase === 'welcome' && (
-            <WelcomeScreen key="welcome" onStart={handleStart} />
+            <WelcomeScreen key="welcome" onStart={handleStart} onLogin={handleLoginClick} />
           )}
 
           {currentPhase === 'categories' && (
@@ -446,6 +450,17 @@ export function Quiz() {
               className="min-h-screen"
             >
               <AuthScreen onComplete={handleComplete} />
+            </motion.div>
+          )}
+
+          {currentPhase === 'login' && (
+            <motion.div
+              key="login"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="min-h-screen"
+            >
+              <AuthScreen onComplete={handleComplete} initialMode="login" />
             </motion.div>
           )}
         </AnimatePresence>

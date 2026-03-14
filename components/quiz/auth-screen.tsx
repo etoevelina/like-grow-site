@@ -10,13 +10,14 @@ type AuthStep = 'register' | 'verify' | 'login' | 'success';
 
 interface AuthScreenProps {
   onComplete: () => void;
+  initialMode?: 'register' | 'login';
 }
 
-export function AuthScreen({ onComplete }: AuthScreenProps) {
+export function AuthScreen({ onComplete, initialMode = 'register' }: AuthScreenProps) {
   const { register, verifyEmail, resendVerification, login } = useAuth();
   
-  const [step, setStep] = useState<AuthStep>('register');
-  const [isLogin, setIsLogin] = useState(false);
+  const [step, setStep] = useState<AuthStep>(initialMode === 'login' ? 'login' : 'register');
+  const [isLogin, setIsLogin] = useState(initialMode === 'login');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);

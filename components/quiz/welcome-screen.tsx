@@ -6,9 +6,10 @@ import { Button } from '@/components/ui/button';
 
 interface WelcomeScreenProps {
   onStart: () => void;
+  onLogin: () => void;
 }
 
-export function WelcomeScreen({ onStart }: WelcomeScreenProps) {
+export function WelcomeScreen({ onStart, onLogin }: WelcomeScreenProps) {
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -128,6 +129,17 @@ export function WelcomeScreen({ onStart }: WelcomeScreenProps) {
       >
         Takes about 2 minutes
       </motion.p>
+
+      {/* Already have account */}
+      <motion.button
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.8 }}
+        onClick={onLogin}
+        className="mt-6 text-sm text-muted-foreground hover:text-foreground transition-colors"
+      >
+        Already have avatar? <span className="text-primary font-medium">Sign in</span>
+      </motion.button>
     </motion.div>
   );
 }

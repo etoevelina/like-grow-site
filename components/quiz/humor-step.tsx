@@ -2,6 +2,8 @@
 
 import { motion } from 'framer-motion';
 import { Slider } from '@/components/ui/slider';
+import { Button } from '@/components/ui/button';
+import { ArrowRight, Smile } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 interface HumorStepProps {
@@ -11,22 +13,16 @@ interface HumorStepProps {
 }
 
 export function HumorStep({ humorLevel, onHumorChange, onNext }: HumorStepProps) {
-  const getHumorEmoji = () => {
-    if (humorLevel < 33) return '😊';
-    if (humorLevel < 66) return '😏';
-    return '🔥';
-  };
-
   const getHumorLabel = () => {
-    if (humorLevel < 33) return 'Wholesome & Light';
-    if (humorLevel < 66) return 'Balanced Vibes';
-    return 'Chaotic Energy';
+    if (humorLevel < 33) return 'Wholesome';
+    if (humorLevel < 66) return 'Balanced';
+    return 'Chaotic';
   };
 
   const getHumorDescription = () => {
     if (humorLevel < 33) return 'Cute puppy memes & feel-good content';
-    if (humorLevel < 66) return 'Mix of everything, you adapt';
-    return '"This Is Fine" existential crises';
+    if (humorLevel < 66) return 'A healthy mix of everything';
+    return 'Existential crisis humor & dark memes';
   };
 
   return (
@@ -34,64 +30,75 @@ export function HumorStep({ humorLevel, onHumorChange, onNext }: HumorStepProps)
       initial={{ opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -50 }}
-      className="w-full max-w-lg mx-auto px-4"
+      className="w-full max-w-md mx-auto px-4"
     >
-      {/* Header with meme reference */}
+      {/* Header */}
       <div className="text-center mb-8">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1, rotate: [0, 5, -5, 0] }}
-          transition={{ rotate: { repeat: Infinity, duration: 2 } }}
-          className="inline-block mb-4"
-        >
-          <div className="text-6xl">🐕‍🦺</div>
-          <div className="text-xs text-muted-foreground mt-1 italic">"This Is Fine"</div>
-        </motion.div>
-        <h2 className="text-2xl md:text-3xl font-bold mb-3 text-foreground">
-          Humor Level Check
+        <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center mx-auto mb-4">
+          <Smile className="w-6 h-6 text-primary" />
+        </div>
+        <h2 className="text-2xl font-bold mb-2 text-foreground">
+          Humor Level
         </h2>
-        <p className="text-muted-foreground leading-relaxed">
-          Pull the slider to rate your meme game! How chaotic is your humor?
+        <p className="text-muted-foreground text-sm">
+          How chaotic is your sense of humor?
         </p>
       </div>
 
-      {/* Slider area */}
+      {/* Slider Card */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ delay: 0.2 }}
-        className="bg-card rounded-3xl p-6 md:p-8 border border-border mb-8"
+        className="glass-card rounded-3xl p-6 mb-8"
       >
-        {/* Current level display */}
-        <div className="text-center mb-8">
-          <motion.div
-            key={getHumorEmoji()}
-            initial={{ scale: 0.5, rotate: -10 }}
-            animate={{ scale: 1, rotate: 0 }}
-            className="text-7xl mb-4"
-          >
-            {getHumorEmoji()}
-          </motion.div>
-          <motion.h3
-            key={getHumorLabel()}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className={cn(
-              'text-xl font-bold mb-2',
-              humorLevel < 33 && 'text-green-400',
-              humorLevel >= 33 && humorLevel < 66 && 'text-secondary',
-              humorLevel >= 66 && 'text-accent'
-            )}
-          >
-            {getHumorLabel()}
-          </motion.h3>
-          <p className="text-sm text-muted-foreground">
-            {getHumorDescription()}
-          </p>
+        {/* Visual representation */}
+        <div className="flex justify-center mb-8">
+          <div className="relative">
+            {/* Background meter */}
+            <div className="w-40 h-40 rounded-full border-8 border-muted flex items-center justify-center relative overflow-hidden">
+              {/* Fill based on humor level */}
+              <motion.div 
+                className={cn(
+                  'absolute bottom-0 left-0 right-0 transition-colors',
+                  humorLevel < 33 && 'bg-accent/30',
+                  humorLevel >= 33 && humorLevel < 66 && 'bg-chart-4/30',
+                  humorLevel >= 66 && 'bg-destructive/30'
+                )}
+                animate={{ height: `${humorLevel}%` }}
+                transition={{ type: 'spring', stiffness: 200 }}
+              />
+              
+              {/* Center content */}
+              <div className="relative z-10 text-center">
+                <motion.span 
+                  key={humorLevel}
+                  initial={{ scale: 0.8 }}
+                  animate={{ scale: 1 }}
+                  className="text-4xl font-bold text-foreground"
+                >
+                  {humorLevel}%
+                </motion.span>
+                <motion.p 
+                  key={getHumorLabel()}
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className={cn(
+                    'text-sm font-medium mt-1',
+                    humorLevel < 33 && 'text-accent',
+                    humorLevel >= 33 && humorLevel < 66 && 'text-chart-4',
+                    humorLevel >= 66 && 'text-destructive'
+                  )}
+                >
+                  {getHumorLabel()}
+                </motion.p>
+              </div>
+            </div>
+          </div>
         </div>
 
         {/* Slider */}
-        <div className="relative">
+        <div className="px-2">
           <Slider
             value={[humorLevel]}
             onValueChange={(value) => onHumorChange(value[0])}
@@ -100,40 +107,32 @@ export function HumorStep({ humorLevel, onHumorChange, onNext }: HumorStepProps)
             className="w-full"
           />
           
-          {/* Labels under slider */}
-          <div className="flex justify-between mt-4 text-xs text-muted-foreground">
+          {/* Labels */}
+          <div className="flex justify-between mt-3 text-xs text-muted-foreground">
             <span>Wholesome</span>
-            <span>Balanced</span>
             <span>Chaotic</span>
           </div>
         </div>
 
-        {/* Thermometer visual */}
-        <div className="mt-6 flex justify-center">
-          <div className="relative w-8 h-32 bg-muted rounded-full overflow-hidden">
-            <motion.div
-              className={cn(
-                'absolute bottom-0 left-0 right-0 rounded-full',
-                humorLevel < 33 && 'bg-green-400',
-                humorLevel >= 33 && humorLevel < 66 && 'bg-secondary',
-                humorLevel >= 66 && 'bg-gradient-to-t from-accent to-orange-500'
-              )}
-              animate={{ height: `${humorLevel}%` }}
-              transition={{ type: 'spring', stiffness: 300 }}
-            />
-          </div>
-        </div>
+        {/* Description */}
+        <motion.p
+          key={getHumorDescription()}
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="text-center text-sm text-muted-foreground mt-6"
+        >
+          {getHumorDescription()}
+        </motion.p>
       </motion.div>
 
       {/* Next Button */}
-      <motion.button
+      <Button
         onClick={onNext}
-        whileHover={{ scale: 1.02 }}
-        whileTap={{ scale: 0.98 }}
-        className="w-full py-4 rounded-full font-bold text-lg bg-gradient-to-r from-primary to-primary/80 text-primary-foreground glow-primary hover:opacity-90 transition-all duration-300"
+        className="w-full py-6 rounded-2xl bg-primary text-primary-foreground font-semibold text-lg"
       >
         Continue
-      </motion.button>
+        <ArrowRight className="w-5 h-5 ml-2" />
+      </Button>
     </motion.div>
   );
 }

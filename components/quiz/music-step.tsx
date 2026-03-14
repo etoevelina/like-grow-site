@@ -1,113 +1,126 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { Music, Headphones } from 'lucide-react';
+import { Check, ArrowRight, Music } from 'lucide-react';
 import { MusicGenre, MUSIC_GENRES } from '@/lib/quiz-types';
 import { cn } from '@/lib/utils';
+import { Button } from '@/components/ui/button';
 
 interface MusicStepProps {
-  selectedGenre: MusicGenre | null;
-  onSelectGenre: (genre: MusicGenre) => void;
+  selectedGenres: MusicGenre[];
+  onToggleGenre: (genre: MusicGenre) => void;
   onNext: () => void;
 }
 
-export function MusicStep({ selectedGenre, onSelectGenre, onNext }: MusicStepProps) {
+export function MusicStep({ selectedGenres, onToggleGenre, onNext }: MusicStepProps) {
+  const canProceed = selectedGenres.length >= 1;
+
   return (
     <motion.div
       initial={{ opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -50 }}
-      className="w-full max-w-lg mx-auto px-4"
+      className="w-full max-w-md mx-auto px-4"
     >
       {/* Header */}
       <div className="text-center mb-8">
-        <motion.div
-          initial={{ scale: 0 }}
-          animate={{ scale: 1 }}
-          className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-gradient-to-br from-primary/30 to-secondary/30 mb-4"
-        >
-          <motion.div
-            animate={{ rotate: [0, 10, -10, 0] }}
-            transition={{ duration: 2, repeat: Infinity }}
-          >
-            <Headphones className="w-10 h-10 text-primary" />
-          </motion.div>
-        </motion.div>
-        <h2 className="text-2xl md:text-3xl font-bold mb-3 text-foreground">
-          Music Vibes
+        <div className="w-12 h-12 rounded-2xl bg-primary/20 flex items-center justify-center mx-auto mb-4">
+          <Music className="w-6 h-6 text-primary" />
+        </div>
+        <h2 className="text-2xl font-bold mb-2 text-foreground">
+          Your Music Taste
         </h2>
-        <p className="text-muted-foreground leading-relaxed">
-          What music do you vibe to most? This adds a soundtrack to your avatar!
-        </p>
-        <p className="text-sm text-muted-foreground/70 mt-2 italic">
-          Think Coachella drops or chill playlists
+        <p className="text-muted-foreground text-sm">
+          Select your favorite genres
         </p>
       </div>
 
-      {/* Genre Selection */}
-      <div className="space-y-3 mb-8">
+      {/* Genre Grid */}
+      <div className="grid grid-cols-2 gap-3 mb-8">
         {MUSIC_GENRES.map((genre, index) => {
-          const isSelected = selectedGenre === genre.id;
+          const isSelected = selectedGenres.includes(genre.id);
           
           return (
             <motion.button
               key={genre.id}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: index * 0.1 }}
-              onClick={() => onSelectGenre(genre.id)}
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: index * 0.06 }}
+              onClick={() => onToggleGenre(genre.id)}
               className={cn(
-                'w-full flex items-center gap-4 p-4 rounded-2xl border-2 transition-all duration-300',
-                'hover:scale-[1.02] active:scale-[0.98]',
+                'relative flex flex-col items-start p-4 rounded-2xl border transition-all duration-200 text-left',
+                'active:scale-95',
                 isSelected
-                  ? 'bg-primary/20 border-primary shadow-lg'
-                  : 'bg-card border-border hover:border-primary/50'
+                  ? 'bg-primary/15 border-primary'
+                  : 'bg-card border-border hover:bg-muted'
               )}
             >
-              {/* Icon with gradient background */}
-              <div className={cn(
-                'w-14 h-14 rounded-xl flex items-center justify-center bg-gradient-to-br',
-                genre.color
-              )}>
-                <Music className="w-7 h-7 text-white" />
-              </div>
-              
-              {/* Text */}
-              <div className="flex-1 text-left">
-                <div className="font-bold text-foreground">{genre.label}</div>
-                <div className="text-sm text-muted-foreground">{genre.description}</div>
-              </div>
-              
-              {/* Selection indicator */}
               {isSelected && (
                 <motion.div
                   initial={{ scale: 0 }}
                   animate={{ scale: 1 }}
-                  className="w-6 h-6 rounded-full bg-primary flex items-center justify-center"
+                  className="absolute top-3 right-3 w-5 h-5 bg-primary rounded-full flex items-center justify-center"
                 >
-                  <div className="w-2 h-2 rounded-full bg-primary-foreground" />
+                  <Check className="w-3 h-3 text-primary-foreground" />
                 </motion.div>
               )}
+              
+              <span className={cn(
+                'text-base font-semibold mb-1',
+                isSelected ? 'text-primary' : 'text-foreground'
+              )}>
+                {genre.label}
+              </span>
+              
+              <span className="text-xs text-muted-foreground leading-tight">
+                {genre.artists}
+              </span>
             </motion.button>
           );
         })}
       </div>
 
+      {/* Selected genres */}
+      {selectedGenres.length > 0 && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          className="flex flex-wrap gap-2 justify-center mb-6"
+        >
+          {selectedGenres.map(genreId => {
+            const genre = MUSIC_GENRES.find(g => g.id === genreId);
+            return (
+              <span 
+                key={genreId}
+                className="px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-medium"
+              >
+                {genre?.label}
+              </span>
+            );
+          })}
+        </motion.div>
+      )}
+
       {/* Next Button */}
-      <motion.button
+      <Button
         onClick={onNext}
-        disabled={!selectedGenre}
-        whileHover={{ scale: selectedGenre ? 1.02 : 1 }}
-        whileTap={{ scale: selectedGenre ? 0.98 : 1 }}
+        disabled={!canProceed}
         className={cn(
-          'w-full py-4 rounded-full font-bold text-lg transition-all duration-300',
-          selectedGenre
-            ? 'bg-gradient-to-r from-primary to-primary/80 text-primary-foreground glow-primary hover:opacity-90'
+          'w-full py-6 rounded-2xl font-semibold text-lg transition-all',
+          canProceed
+            ? 'bg-primary text-primary-foreground'
             : 'bg-muted text-muted-foreground cursor-not-allowed'
         )}
       >
-        {selectedGenre ? 'Continue' : 'Pick a genre'}
-      </motion.button>
+        {canProceed ? (
+          <>
+            Continue
+            <ArrowRight className="w-5 h-5 ml-2" />
+          </>
+        ) : (
+          'Select at least one'
+        )}
+      </Button>
     </motion.div>
   );
 }

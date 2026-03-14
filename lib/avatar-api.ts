@@ -12,8 +12,11 @@ export interface AvatarProfile {
   content_style: string;
 }
 
+export type AvatarState = 'healthy' | 'tired' | 'degraded' | 'idle';
+
 export interface Avatar {
   id: number;
+  user_id?: number;
   level: number;
   level_name: string;
   experience: number;
@@ -22,9 +25,13 @@ export interface Avatar {
   coins: number;
   current_image_url: string | null;
   current_video_url: string | null;
-  state: string;
+  state: AvatarState;
   traits: string[];
   accessories: string[];
+  last_fed_at?: string;
+  saved_posts_count?: number;
+  last_content_at?: string;
+  last_evolution_at?: string;
 }
 
 export interface CreateAvatarResponse {
@@ -34,7 +41,7 @@ export interface CreateAvatarResponse {
   avatar: Avatar;
 }
 
-export interface AvatarState {
+export interface AvatarDataState {
   isLoading: boolean;
   isGenerating: boolean;
   profile: AvatarProfile | null;
@@ -146,6 +153,127 @@ export async function getAvatar(): Promise<{
     return { success: true, data };
   } catch (error) {
     console.error('Get avatar error:', error);
+    return { success: false, error: 'Network error. Please try again.' };
+  }
+}
+
+// Get avatar profile (internet portrait)
+export async function getAvatarProfile(): Promise<{
+  success: boolean;
+  data?: AvatarProfile;
+  error?: string;
+}> {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const response = await fetch(`${API_BASE}/api/avatar/profile`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.message || 'Failed to get profile' };
+    }
+
+    return { success: true, data };
+  } catch {
+    return { success: false, error: 'Network error. Please try again.' };
+  }
+}
+
+// Submit content via HTTP (alternative to socket)
+export interface ContentSubmitResponse {
+  ok: boolean;
+  xp?: number;
+  coins?: number;
+  avatar?: Avatar;
+  leveled_up?: boolean;
+  old_level?: number;
+  new_level?: number;
+  evolution?: {
+    image_url: string;
+    video_url: string;
+  };
+  content_evolution?: {
+    image_url: string;
+    video_url: string;
+  };
+  error?: string;
+}
+
+export async function submitContent(url: string): Promise<{
+  success: boolean;
+  data?: ContentSubmitResponse;
+  error?: string;
+}> {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const response = await fetch(`${API_BASE}/api/content/submit`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ url }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.error || 'Failed to submit content' };
+    }
+
+    return { success: true, data };
+  } catch {
+    return { success: false, error: 'Network error. Please try again.' };
+  }
+}
+
+// Get avatar history
+export interface EvolutionHistoryItem {
+  image_url: string;
+  video_url: string;
+  trigger_type: string;
+  created_at: string;
+}
+
+export async function getAvatarHistory(limit: number = 10): Promise<{
+  success: boolean;
+  data?: EvolutionHistoryItem[];
+  error?: string;
+}> {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const response = await fetch(`${API_BASE}/api/avatar/history?limit=${limit}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.message || 'Failed to get history' };
+    }
+
+    return { success: true, data };
+  } catch {
     return { success: false, error: 'Network error. Please try again.' };
   }
 }

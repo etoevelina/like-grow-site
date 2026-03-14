@@ -56,6 +56,13 @@ export default function DashboardPage() {
   const [shutterOpen, setShutterOpen] = useState(false);
   const [showShopPrompt, setShowShopPrompt] = useState(false);
 
+  // Daily post limit
+  const MAX_DAILY_POSTS = 5;
+  const [todayPostCount, setTodayPostCount] = useState(0);
+
+  // Check if avatar is ready (has actual content)
+  const avatarReady = !!(avatar?.current_video_url || avatar?.current_image_url);
+
   // Socket connection
 const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
     setAvatar(updatedAvatar);
@@ -94,6 +101,16 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
         // Clean URL
         window.history.replaceState({}, '', '/dashboard');
       }
+      
+      // Load today's post count from localStorage
+      const today = new Date().toDateString();
+      const savedData = localStorage.getItem('daily_posts');
+      if (savedData) {
+        const { date, count } = JSON.parse(savedData);
+        if (date === today) {
+          setTodayPostCount(count);
+        }
+      }
     }
   }, []);
 
@@ -112,8 +129,9 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
           setAvatar(result.data.avatar);
           setProfile(result.data.profile);
           
-          // For new users, keep shutter closed until they tap
-          if (!isNewUser) {
+          // For existing users with ready avatar, open shutter immediately
+          const hasContent = !!(result.data.avatar.current_video_url || result.data.avatar.current_image_url);
+          if (!isNewUser && hasContent) {
             setShutterOpen(true);
           }
         }
@@ -123,16 +141,36 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
     }
   }, [mounted, user, isNewUser]);
 
-  // Handle shutter reveal
+  // Handle shutter reveal - only allow if avatar has content
   const handleRevealAvatar = () => {
+    if (!avatarReady) return; // Can't reveal until avatar has image/video
     setShutterOpen(true);
     setShowShopPrompt(false);
-    // Clear new user flag
     localStorage.removeItem('avatar_creating');
   };
 
+  // Poll for avatar readiness for new users
+  useEffect(() => {
+    if (!isNewUser || avatarReady || avatarLoading) return;
+    
+    const pollInterval = setInterval(async () => {
+      const result = await getAvatar();
+      if (result.success && result.data) {
+        const hasContent = !!(result.data.avatar.current_video_url || result.data.avatar.current_image_url);
+        if (hasContent) {
+          setAvatar(result.data.avatar);
+          setProfile(result.data.profile);
+          // Avatar is ready - user can now reveal
+        }
+      }
+    }, 3000); // Poll every 3 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [isNewUser, avatarReady, avatarLoading]);
+
   const handleSubmitPost = async () => {
     if (!postUrl.trim()) return;
+    if (todayPostCount >= MAX_DAILY_POSTS) return;
 
     const newItem: HistoryItem = {
       id: Date.now().toString(),
@@ -145,6 +183,14 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
 
     setHistory(prev => [newItem, ...prev]);
     setPostUrl('');
+    
+    // Update daily count
+    const newCount = todayPostCount + 1;
+    setTodayPostCount(newCount);
+    localStorage.setItem('daily_posts', JSON.stringify({
+      date: new Date().toDateString(),
+      count: newCount,
+    }));
 
     try {
       await submitPost(postUrl);
@@ -329,14 +375,23 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                         >
                           <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-black/20 to-transparent" />
                         </motion.div>
-                        {/* Tap prompt */}
+                        {/* Tap prompt - changes based on avatar readiness */}
                         <motion.div 
                           className="absolute inset-0 z-30 flex flex-col items-center justify-center"
                           animate={{ opacity: [0.7, 1, 0.7] }}
                           transition={{ duration: 2, repeat: Infinity }}
                         >
-                          <Sparkles className="w-10 h-10 text-primary mb-2" />
-                          <span className="text-sm font-medium text-foreground">Tap to reveal</span>
+                          {avatarReady ? (
+                            <>
+                              <Sparkles className="w-10 h-10 text-primary mb-2" />
+                              <span className="text-sm font-medium text-foreground">Tap to reveal</span>
+                            </>
+                          ) : (
+                            <>
+                              <Loader2 className="w-10 h-10 text-primary mb-2 animate-spin" />
+                              <span className="text-sm font-medium text-foreground">Creating...</span>
+                            </>
+                          )}
                         </motion.div>
                       </>
                     )}
@@ -459,8 +514,8 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                 </motion.div>
               )}
 
-              {/* Shop Prompt for new users */}
-              {showShopPrompt && isNewUser && !shutterOpen && (
+              {/* Shop Prompt for new users - show while avatar is being created */}
+              {showShopPrompt && isNewUser && !avatarReady && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -493,12 +548,17 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
                 className={`glass-card rounded-2xl p-4 mb-6 ${
-                  (isNewUser && !shutterOpen) || avatarLoading ? 'opacity-50' : ''
+                  (!avatarReady && isNewUser) || avatarLoading ? 'opacity-50' : ''
                 }`}
               >
-                <div className="flex items-center gap-2 mb-3">
-                  <Link2 className="w-4 h-4 text-primary" />
-                  <span className="text-sm font-medium text-foreground">Feed your avatar</span>
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <Link2 className="w-4 h-4 text-primary" />
+                    <span className="text-sm font-medium text-foreground">Feed your avatar</span>
+                  </div>
+                  <span className={`text-xs ${todayPostCount >= MAX_DAILY_POSTS ? 'text-destructive' : 'text-muted-foreground'}`}>
+                    {todayPostCount}/{MAX_DAILY_POSTS} today
+                  </span>
                 </div>
                 <div className="flex gap-2">
                   <input
@@ -506,29 +566,30 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                     value={postUrl}
                     onChange={(e) => setPostUrl(e.target.value)}
                     placeholder={
-                      (isNewUser && !shutterOpen) 
-                        ? "Reveal your avatar first..." 
-                        : "Paste TikTok or Instagram link..."
+                      todayPostCount >= MAX_DAILY_POSTS
+                        ? "Daily limit reached..."
+                        : (!avatarReady && isNewUser) 
+                          ? "Wait for avatar to be ready..." 
+                          : "Paste TikTok or Instagram link..."
                     }
-                    disabled={(isNewUser && !shutterOpen) || avatarLoading}
+                    disabled={(!avatarReady && isNewUser) || avatarLoading || todayPostCount >= MAX_DAILY_POSTS}
                     className="flex-1 px-3 py-2 bg-input border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                     onKeyDown={(e) => e.key === 'Enter' && handleSubmitPost()}
                   />
                   <Button
                     onClick={handleSubmitPost}
-                    disabled={!postUrl.trim() || isSubmitting || !isConnected || (isNewUser && !shutterOpen) || avatarLoading}
+                    disabled={!postUrl.trim() || !isConnected || (!avatarReady && isNewUser) || avatarLoading || todayPostCount >= MAX_DAILY_POSTS}
                     size="sm"
                     className="rounded-xl bg-primary text-primary-foreground px-4"
                   >
-                    {isSubmitting ? (
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                    ) : (
-                      <Send className="w-4 h-4" />
-                    )}
+                    <Send className="w-4 h-4" />
                   </Button>
                 </div>
-                {!isConnected && shutterOpen && (
+                {!isConnected && avatarReady && (
                   <p className="text-xs text-destructive mt-2">Connecting...</p>
+                )}
+                {todayPostCount >= MAX_DAILY_POSTS && (
+                  <p className="text-xs text-muted-foreground mt-2">Come back tomorrow for more!</p>
                 )}
               </motion.div>
 

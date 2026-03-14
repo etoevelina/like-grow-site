@@ -202,7 +202,9 @@ export function Quiz() {
   };
 
   const handleComplete = () => {
-    alert('Avatar created! In a full app, this would redirect to your profile.');
+    // User successfully registered/logged in
+    // In a full app, this would redirect to the main dashboard
+    window.location.href = '/dashboard';
   };
 
   const showBackButton = currentPhase !== 'welcome' && currentPhase !== 'generation';

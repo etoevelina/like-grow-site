@@ -5,6 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Sparkles, Trophy, Coins, ArrowRight } from 'lucide-react';
 import { QuizState, generateAvatarTraits } from '@/lib/quiz-types';
 import { Button } from '@/components/ui/button';
+import { MagicTransition } from './magic-transition';
+import { AuthScreen } from './auth-screen';
 
 interface GenerationScreenProps {
   quizState: QuizState;
@@ -12,7 +14,7 @@ interface GenerationScreenProps {
 }
 
 export function GenerationScreen({ quizState, onComplete }: GenerationScreenProps) {
-  const [phase, setPhase] = useState<'generating' | 'reveal'>('generating');
+  const [phase, setPhase] = useState<'generating' | 'reveal' | 'magic' | 'auth'>('generating');
   const traits = generateAvatarTraits(quizState);
 
   useEffect(() => {
@@ -201,7 +203,7 @@ export function GenerationScreen({ quizState, onComplete }: GenerationScreenProp
               transition={{ delay: 0.8 }}
             >
               <Button
-                onClick={onComplete}
+                onClick={() => setPhase('magic')}
                 className="w-full py-6 rounded-2xl bg-primary text-primary-foreground font-semibold text-lg"
               >
                 Start Growing
@@ -211,6 +213,26 @@ export function GenerationScreen({ quizState, onComplete }: GenerationScreenProp
                 Sign up to save your avatar
               </p>
             </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Magic Transition */}
+      <AnimatePresence>
+        {phase === 'magic' && (
+          <MagicTransition onComplete={() => setPhase('auth')} />
+        )}
+      </AnimatePresence>
+
+      {/* Auth Screen */}
+      <AnimatePresence>
+        {phase === 'auth' && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 z-50 bg-background"
+          >
+            <AuthScreen onComplete={onComplete} />
           </motion.div>
         )}
       </AnimatePresence>

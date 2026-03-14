@@ -34,8 +34,11 @@ import { MoodBoard } from './mood-board';
 import { ThisOrThat } from './this-or-that';
 import { MagicTransition } from './magic-transition';
 import { AuthScreen } from './auth-screen';
+import { AvatarCreation } from '../avatar/avatar-creation';
+import { AvatarWindow } from '../avatar/avatar-window';
+import { Avatar, AvatarProfile } from '@/lib/avatar-api';
 
-type QuizPhase = 'welcome' | 'categories' | 'humor' | 'music' | 'questions' | 'magic' | 'auth' | 'login';
+type QuizPhase = 'welcome' | 'categories' | 'humor' | 'music' | 'questions' | 'magic' | 'auth' | 'login' | 'creating' | 'reveal';
 
 export function Quiz() {
   const [currentPhase, setCurrentPhase] = useState<QuizPhase>('welcome');
@@ -52,6 +55,11 @@ export function Quiz() {
     quoteAnswers: {},
     progress: 0,
   });
+
+  // Avatar state
+  const [avatar, setAvatar] = useState<Avatar | null>(null);
+  const [avatarProfile, setAvatarProfile] = useState<AvatarProfile | null>(null);
+  const [avatarError, setAvatarError] = useState<string | null>(null);
 
   // Generate mixed questions when entering questions phase
   useEffect(() => {
@@ -212,14 +220,30 @@ export function Quiz() {
     }
   };
 
-  const handleComplete = () => {
+  const handleAuthComplete = () => {
     // User successfully registered/logged in
-    // In a full app, this would redirect to the main dashboard
+    // Now create the avatar
+    setCurrentPhase('creating');
+  };
+
+  const handleAvatarCreated = (createdAvatar: Avatar, profile: AvatarProfile) => {
+    setAvatar(createdAvatar);
+    setAvatarProfile(profile);
+    setCurrentPhase('reveal');
+  };
+
+  const handleAvatarError = (error: string) => {
+    setAvatarError(error);
+    // Could show error UI or retry
+    console.error('Avatar creation error:', error);
+  };
+
+  const handleContinueToDashboard = () => {
     window.location.href = '/dashboard';
   };
 
-  const showBackButton = currentPhase !== 'welcome' && currentPhase !== 'magic' && currentPhase !== 'auth' && currentPhase !== 'login';
-  const showProgress = currentPhase !== 'welcome' && currentPhase !== 'magic' && currentPhase !== 'auth' && currentPhase !== 'login';
+  const showBackButton = currentPhase !== 'welcome' && currentPhase !== 'magic' && currentPhase !== 'auth' && currentPhase !== 'login' && currentPhase !== 'creating' && currentPhase !== 'reveal';
+  const showProgress = currentPhase !== 'welcome' && currentPhase !== 'magic' && currentPhase !== 'auth' && currentPhase !== 'login' && currentPhase !== 'creating' && currentPhase !== 'reveal';
   const progress = calculateProgress();
 
   const getCategoryLabel = (category: Category) => {
@@ -449,7 +473,7 @@ export function Quiz() {
               animate={{ opacity: 1 }}
               className="min-h-screen"
             >
-              <AuthScreen onComplete={handleComplete} />
+              <AuthScreen onComplete={handleAuthComplete} />
             </motion.div>
           )}
 
@@ -460,7 +484,45 @@ export function Quiz() {
               animate={{ opacity: 1 }}
               className="min-h-screen"
             >
-              <AuthScreen onComplete={handleComplete} initialMode="login" />
+              <AuthScreen onComplete={handleAuthComplete} initialMode="login" />
+            </motion.div>
+          )}
+
+          {currentPhase === 'creating' && (
+            <AvatarCreation
+              key="creating"
+              quizState={quizState}
+              onComplete={handleAvatarCreated}
+              onError={handleAvatarError}
+            />
+          )}
+
+          {currentPhase === 'reveal' && avatar && avatarProfile && (
+            <AvatarWindow
+              key="reveal"
+              avatar={avatar}
+              profile={avatarProfile}
+              onContinue={handleContinueToDashboard}
+            />
+          )}
+
+          {/* Error state */}
+          {avatarError && (
+            <motion.div
+              key="error"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              className="min-h-screen flex items-center justify-center px-6"
+            >
+              <div className="text-center">
+                <p className="text-destructive mb-4">{avatarError}</p>
+                <button
+                  onClick={() => setCurrentPhase('creating')}
+                  className="text-primary hover:underline"
+                >
+                  Try again
+                </button>
+              </div>
             </motion.div>
           )}
         </AnimatePresence>

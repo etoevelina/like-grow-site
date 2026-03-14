@@ -51,6 +51,11 @@ export default function DashboardPage() {
   const [postUrl, setPostUrl] = useState('');
   const [history, setHistory] = useState<HistoryItem[]>([]);
 
+  // New user flow - shutter state
+  const [isNewUser, setIsNewUser] = useState(false);
+  const [shutterOpen, setShutterOpen] = useState(false);
+  const [showShopPrompt, setShowShopPrompt] = useState(false);
+
   // Socket connection
 const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
     setAvatar(updatedAvatar);
@@ -80,6 +85,16 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
 
   useEffect(() => {
     setMounted(true);
+    // Check if new user from URL param
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('new') === 'true') {
+        setIsNewUser(true);
+        setShowShopPrompt(true);
+        // Clean URL
+        window.history.replaceState({}, '', '/dashboard');
+      }
+    }
   }, []);
 
   useEffect(() => {
@@ -96,12 +111,25 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
         if (result.success && result.data) {
           setAvatar(result.data.avatar);
           setProfile(result.data.profile);
+          
+          // For new users, keep shutter closed until they tap
+          if (!isNewUser) {
+            setShutterOpen(true);
+          }
         }
         setAvatarLoading(false);
       };
       fetchAvatar();
     }
-  }, [mounted, user]);
+  }, [mounted, user, isNewUser]);
+
+  // Handle shutter reveal
+  const handleRevealAvatar = () => {
+    setShutterOpen(true);
+    setShowShopPrompt(false);
+    // Clear new user flag
+    localStorage.removeItem('avatar_creating');
+  };
 
   const handleSubmitPost = async () => {
     if (!postUrl.trim()) return;
@@ -225,11 +253,13 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                   )}
 
                   <div 
-                    className="relative rounded-2xl overflow-hidden aspect-square"
+                    className="relative rounded-2xl overflow-hidden aspect-square cursor-pointer"
                     style={{
                       boxShadow: 'inset 0 0 30px oklch(0.5 0.2 320 / 0.3), 0 0 20px oklch(0.5 0.2 320 / 0.2)',
                     }}
+                    onClick={isNewUser && !shutterOpen ? handleRevealAvatar : undefined}
                   >
+                    {/* Avatar content */}
                     {avatarLoading ? (
                       <div className="w-full h-full bg-card flex items-center justify-center">
                         <div className="w-12 h-12 rounded-full border-2 border-primary border-t-transparent animate-spin" />
@@ -271,6 +301,60 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                         background: 'radial-gradient(circle, transparent 50%, oklch(0.1 0.01 260 / 0.4) 100%)',
                       }}
                     />
+
+                    {/* Shutter overlay for new users */}
+                    {isNewUser && !shutterOpen && !avatarLoading && (
+                      <>
+                        {/* Left shutter */}
+                        <motion.div
+                          initial={{ x: 0 }}
+                          animate={{ x: shutterOpen ? '-100%' : 0 }}
+                          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                          className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-card to-card/95 z-20"
+                          style={{
+                            boxShadow: 'inset -10px 0 30px oklch(0 0 0 / 0.5)',
+                          }}
+                        >
+                          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-black/20 to-transparent" />
+                        </motion.div>
+                        {/* Right shutter */}
+                        <motion.div
+                          initial={{ x: 0 }}
+                          animate={{ x: shutterOpen ? '100%' : 0 }}
+                          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
+                          className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-card to-card/95 z-20"
+                          style={{
+                            boxShadow: 'inset 10px 0 30px oklch(0 0 0 / 0.5)',
+                          }}
+                        >
+                          <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-black/20 to-transparent" />
+                        </motion.div>
+                        {/* Tap prompt */}
+                        <motion.div 
+                          className="absolute inset-0 z-30 flex flex-col items-center justify-center"
+                          animate={{ opacity: [0.7, 1, 0.7] }}
+                          transition={{ duration: 2, repeat: Infinity }}
+                        >
+                          <Sparkles className="w-10 h-10 text-primary mb-2" />
+                          <span className="text-sm font-medium text-foreground">Tap to reveal</span>
+                        </motion.div>
+                      </>
+                    )}
+
+                    {/* Magic glow effect when opening */}
+                    <AnimatePresence>
+                      {isNewUser && shutterOpen && (
+                        <motion.div
+                          initial={{ opacity: 1 }}
+                          animate={{ opacity: 0 }}
+                          transition={{ duration: 1.5, delay: 0.3 }}
+                          className="absolute inset-0 z-10 pointer-events-none"
+                          style={{
+                            background: 'radial-gradient(circle, oklch(0.8 0.2 60) 0%, transparent 70%)',
+                          }}
+                        />
+                      )}
+                    </AnimatePresence>
                   </div>
 
                   {/* Corner decorations */}
@@ -375,12 +459,42 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                 </motion.div>
               )}
 
+              {/* Shop Prompt for new users */}
+              {showShopPrompt && isNewUser && !shutterOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.3 }}
+                  className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
+                      <ShoppingBag className="w-5 h-5 text-primary" />
+                    </div>
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-foreground">While you wait...</p>
+                      <p className="text-xs text-muted-foreground">Check out the shop for accessories!</p>
+                    </div>
+                    <Button
+                      onClick={() => setShowShop(true)}
+                      size="sm"
+                      variant="outline"
+                      className="rounded-xl"
+                    >
+                      Browse
+                    </Button>
+                  </div>
+                </motion.div>
+              )}
+
               {/* Feed Widget */}
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3 }}
-                className="glass-card rounded-2xl p-4 mb-6"
+                className={`glass-card rounded-2xl p-4 mb-6 ${
+                  (isNewUser && !shutterOpen) || avatarLoading ? 'opacity-50' : ''
+                }`}
               >
                 <div className="flex items-center gap-2 mb-3">
                   <Link2 className="w-4 h-4 text-primary" />
@@ -391,13 +505,18 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                     type="url"
                     value={postUrl}
                     onChange={(e) => setPostUrl(e.target.value)}
-                    placeholder="Paste TikTok or Instagram link..."
-                    className="flex-1 px-3 py-2 bg-input border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    placeholder={
+                      (isNewUser && !shutterOpen) 
+                        ? "Reveal your avatar first..." 
+                        : "Paste TikTok or Instagram link..."
+                    }
+                    disabled={(isNewUser && !shutterOpen) || avatarLoading}
+                    className="flex-1 px-3 py-2 bg-input border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
                     onKeyDown={(e) => e.key === 'Enter' && handleSubmitPost()}
                   />
                   <Button
                     onClick={handleSubmitPost}
-                    disabled={!postUrl.trim() || isSubmitting || !isConnected}
+                    disabled={!postUrl.trim() || isSubmitting || !isConnected || (isNewUser && !shutterOpen) || avatarLoading}
                     size="sm"
                     className="rounded-xl bg-primary text-primary-foreground px-4"
                   >
@@ -408,7 +527,7 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                     )}
                   </Button>
                 </div>
-                {!isConnected && (
+                {!isConnected && shutterOpen && (
                   <p className="text-xs text-destructive mt-2">Connecting...</p>
                 )}
               </motion.div>

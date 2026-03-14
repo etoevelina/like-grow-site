@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronLeft, TrendingUp, Skull, Sparkles, Check, Baby } from 'lucide-react';
-import { createAvatar, formatQuizAnswers, Avatar, AvatarProfile, QuizAnswer } from '@/lib/avatar-api';
+import { ChevronRight, ChevronLeft, TrendingUp, Skull, Baby } from 'lucide-react';
+import { createAvatar, formatQuizAnswers, Avatar, AvatarProfile, QuizAnswer, saveAvatarData } from '@/lib/avatar-api';
 import { QuizState } from '@/lib/quiz-types';
 import { Button } from '@/components/ui/button';
 
@@ -41,38 +41,33 @@ const ONBOARDING_SLIDES = [
   },
 ];
 
-export function AvatarCreation({ quizState, onComplete, onError }: AvatarCreationProps) {
+export function AvatarCreation({ quizState, onComplete }: AvatarCreationProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [avatarReady, setAvatarReady] = useState(false);
-  const [avatarData, setAvatarData] = useState<{ avatar: Avatar; profile: AvatarProfile } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [hasSeenAllSlides, setHasSeenAllSlides] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [hasStartedCreation, setHasStartedCreation] = useState(false);
 
-  // Track if user has seen all slides
-  useEffect(() => {
-    if (currentSlide === ONBOARDING_SLIDES.length - 1) {
-      setHasSeenAllSlides(true);
-    }
-  }, [currentSlide]);
-
-  // API call in background
+  // Start avatar creation when component mounts
   const createAvatarFromQuiz = useCallback(async () => {
+    if (hasStartedCreation) return;
+    setHasStartedCreation(true);
+    setIsCreating(true);
+    
     try {
       const answers: QuizAnswer[] = formatQuizAnswers(quizState);
       const result = await createAvatar(answers);
       
       if (result.success && result.data) {
-        setAvatarData({ avatar: result.data.avatar, profile: result.data.profile });
-        setAvatarReady(true);
-      } else {
-        // This shouldn't happen now since we have mock fallback
-        setError(result.error || 'Failed to create avatar');
+        // Save to localStorage for dashboard
+        saveAvatarData(result.data.avatar, result.data.profile);
+        // Mark as creating (dashboard will handle the reveal)
+        localStorage.setItem('avatar_creating', 'true');
       }
-    } catch (err) {
-      // This shouldn't happen now since we have mock fallback
-      setError('Something went wrong. Please try again.');
+    } catch {
+      // Continue anyway - dashboard will retry
     }
-  }, [quizState]);
+    
+    setIsCreating(false);
+  }, [quizState, hasStartedCreation]);
 
   useEffect(() => {
     createAvatarFromQuiz();
@@ -90,21 +85,19 @@ export function AvatarCreation({ quizState, onComplete, onError }: AvatarCreatio
     }
   };
 
-  const handleMeetAvatar = () => {
-    if (avatarData) {
-      onComplete(avatarData.avatar, avatarData.profile);
-    }
+  const handleGoToDashboard = () => {
+    // Go to dashboard - avatar will be under shutter
+    window.location.href = '/dashboard?new=true';
   };
 
   const slide = ONBOARDING_SLIDES[currentSlide];
   const Icon = slide.icon;
+  const isLastSlide = currentSlide === ONBOARDING_SLIDES.length - 1;
 
   const getColorClass = (color: string) => {
     switch (color) {
       case 'primary': return 'text-primary bg-primary/10 border-primary/20';
       case 'accent': return 'text-accent bg-accent/10 border-accent/20';
-      case 'cyan': return 'text-cyan-400 bg-cyan-400/10 border-cyan-400/20';
-      case 'yellow': return 'text-yellow-500 bg-yellow-500/10 border-yellow-500/20';
       case 'destructive': return 'text-destructive bg-destructive/10 border-destructive/20';
       default: return 'text-primary bg-primary/10 border-primary/20';
     }
@@ -114,8 +107,6 @@ export function AvatarCreation({ quizState, onComplete, onError }: AvatarCreatio
     switch (color) {
       case 'primary': return 'oklch(0.7 0.2 320 / 0.3)';
       case 'accent': return 'oklch(0.65 0.18 145 / 0.3)';
-      case 'cyan': return 'oklch(0.7 0.18 200 / 0.3)';
-      case 'yellow': return 'oklch(0.8 0.15 85 / 0.3)';
       case 'destructive': return 'oklch(0.6 0.22 25 / 0.3)';
       default: return 'oklch(0.7 0.2 320 / 0.3)';
     }
@@ -202,33 +193,26 @@ export function AvatarCreation({ quizState, onComplete, onError }: AvatarCreatio
 
       {/* Navigation */}
       <div className="p-6 relative z-10">
-        {/* Avatar ready indicator */}
-        {avatarReady && hasSeenAllSlides && (
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="mb-4 text-center"
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-accent/10 border border-accent/20">
-              <Sparkles className="w-4 h-4 text-accent" />
-              <span className="text-sm font-medium text-accent">Your avatar is ready!</span>
-            </div>
-          </motion.div>
-        )}
-
-        {/* Generation status when not ready */}
-        {!avatarReady && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mb-4 text-center"
-          >
-            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted">
-              <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />
-              <span className="text-xs text-muted-foreground">Creating your avatar...</span>
-            </div>
-          </motion.div>
-        )}
+        {/* Creation status indicator */}
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          className="mb-4 text-center"
+        >
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted">
+            {isCreating ? (
+              <>
+                <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />
+                <span className="text-xs text-muted-foreground">Preparing your avatar...</span>
+              </>
+            ) : (
+              <>
+                <div className="w-3 h-3 rounded-full bg-accent" />
+                <span className="text-xs text-muted-foreground">Avatar ready to meet you!</span>
+              </>
+            )}
+          </div>
+        </motion.div>
 
         {/* Navigation buttons */}
         <div className="flex items-center gap-3">
@@ -244,23 +228,13 @@ export function AvatarCreation({ quizState, onComplete, onError }: AvatarCreatio
           </Button>
 
           {/* Main action button */}
-          {currentSlide === ONBOARDING_SLIDES.length - 1 ? (
+          {isLastSlide ? (
             <Button
-              onClick={handleMeetAvatar}
-              disabled={!avatarReady}
+              onClick={handleGoToDashboard}
               className="flex-1 h-12 rounded-xl bg-primary text-primary-foreground font-semibold"
             >
-              {avatarReady ? (
-                <>
-                  <Sparkles className="w-5 h-5 mr-2" />
-                  Meet Your Avatar
-                </>
-              ) : (
-                <>
-                  <div className="w-4 h-4 rounded-full border-2 border-primary-foreground border-t-transparent animate-spin mr-2" />
-                  Almost ready...
-                </>
-              )}
+              Enter App
+              <ChevronRight className="w-5 h-5 ml-2" />
             </Button>
           ) : (
             <Button
@@ -271,30 +245,7 @@ export function AvatarCreation({ quizState, onComplete, onError }: AvatarCreatio
               <ChevronRight className="w-5 h-5 ml-2" />
             </Button>
           )}
-
-          {/* Skip to meet avatar (only if ready and seen all) */}
-          {avatarReady && !hasSeenAllSlides && currentSlide < ONBOARDING_SLIDES.length - 1 && (
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleMeetAvatar}
-              className="rounded-xl h-12 w-12"
-            >
-              <Check className="w-5 h-5" />
-            </Button>
-          )}
         </div>
-
-        {/* Error display */}
-        {error && (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="mt-4 text-center text-sm text-destructive"
-          >
-            {error}
-          </motion.p>
-        )}
       </div>
     </div>
   );

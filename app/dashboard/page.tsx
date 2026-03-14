@@ -3,14 +3,35 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  User, LogOut, Sparkles, Trophy, Coins, Star, 
-  Plus, X, Link2, Send, Loader2, CheckCircle2,
-  Heart, Frown, AlertTriangle, Wifi, WifiOff
+  User, Sparkles, Trophy, Coins, Star, 
+  Link2, Send, Loader2, CheckCircle2,
+  Heart, Frown, AlertTriangle, 
+  Home, ListPlus, ShoppingBag, Clock, X,
+  ExternalLink
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useSocket, ContentSubmitResult } from '@/hooks/use-socket';
 import { getAvatar, Avatar, AvatarProfile, AvatarState } from '@/lib/avatar-api';
 import { Button } from '@/components/ui/button';
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from '@/components/ui/sheet';
+
+type TabType = 'home' | 'feed';
+
+interface HistoryItem {
+  id: string;
+  url: string;
+  xp: number;
+  coins: number;
+  timestamp: Date;
+  status: 'success' | 'processing' | 'error';
+  error?: string;
+}
 
 export default function DashboardPage() {
   const { user, loading, logout } = useAuth();
@@ -20,18 +41,38 @@ export default function DashboardPage() {
   const [avatarLoading, setAvatarLoading] = useState(true);
   const videoRef = useRef<HTMLVideoElement>(null);
 
-  // Post submission modal
-  const [showPostModal, setShowPostModal] = useState(false);
+  // Tab navigation
+  const [activeTab, setActiveTab] = useState<TabType>('home');
+  
+  // Shop sheet
+  const [showShop, setShowShop] = useState(false);
+
+  // Feed tab state
   const [postUrl, setPostUrl] = useState('');
-  const [submitResult, setSubmitResult] = useState<ContentSubmitResult | null>(null);
-  const [showResult, setShowResult] = useState(false);
+  const [history, setHistory] = useState<HistoryItem[]>([]);
 
   // Socket connection
   const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
     setAvatar(updatedAvatar);
   }, []);
 
-  const { isConnected, isSubmitting, lastError, submitPost } = useSocket(handleAvatarUpdate);
+  const handleContentResult = useCallback((result: ContentSubmitResult & { url?: string }) => {
+    // Update history item
+    setHistory(prev => prev.map(item => {
+      if (item.status === 'processing') {
+        return {
+          ...item,
+          status: result.ok ? 'success' : 'error',
+          xp: result.xp || 0,
+          coins: result.coins || 0,
+          error: result.error,
+        };
+      }
+      return item;
+    }));
+  }, []);
+
+  const { isConnected, isSubmitting, submitPost } = useSocket(handleAvatarUpdate, handleContentResult);
 
   useEffect(() => {
     setMounted(true);
@@ -58,32 +99,29 @@ export default function DashboardPage() {
     }
   }, [mounted, user]);
 
-  const handleLogout = () => {
-    logout();
-    window.location.href = '/';
-  };
-
   const handleSubmitPost = async () => {
     if (!postUrl.trim()) return;
 
+    const newItem: HistoryItem = {
+      id: Date.now().toString(),
+      url: postUrl,
+      xp: 0,
+      coins: 0,
+      timestamp: new Date(),
+      status: 'processing',
+    };
+
+    setHistory(prev => [newItem, ...prev]);
+    setPostUrl('');
+
     try {
-      const result = await submitPost(postUrl);
-      setSubmitResult(result);
-      setShowResult(true);
-      setPostUrl('');
-      
-      // Hide result after 4 seconds
-      setTimeout(() => {
-        setShowResult(false);
-        setShowPostModal(false);
-        setSubmitResult(null);
-      }, 4000);
+      await submitPost(postUrl);
     } catch (err) {
-      setSubmitResult({
-        ok: false,
-        error: err instanceof Error ? err.message : 'Failed to submit post',
-      });
-      setShowResult(true);
+      setHistory(prev => prev.map(item => 
+        item.id === newItem.id 
+          ? { ...item, status: 'error', error: err instanceof Error ? err.message : 'Failed' }
+          : item
+      ));
     }
   };
 
@@ -97,6 +135,17 @@ export default function DashboardPage() {
         return { icon: AlertTriangle, color: 'text-red-500', bg: 'bg-red-500/20', label: 'Degrading' };
       default:
         return { icon: Sparkles, color: 'text-primary', bg: 'bg-primary/20', label: 'Idle' };
+    }
+  };
+
+  const extractDomain = (url: string) => {
+    try {
+      const domain = new URL(url).hostname;
+      if (domain.includes('tiktok')) return 'TikTok';
+      if (domain.includes('instagram')) return 'Instagram';
+      return domain;
+    } catch {
+      return 'Link';
     }
   };
 
@@ -116,403 +165,432 @@ export default function DashboardPage() {
   const StateIcon = stateInfo?.icon || Sparkles;
 
   return (
-    <div className="min-h-screen bg-background">
-      {/* Header */}
-      <header className="border-b border-border bg-card/50 backdrop-blur-sm sticky top-0 z-50">
-        <div className="max-w-md mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="font-semibold text-foreground text-sm">LikeGrow</h1>
-              <p className="text-xs text-muted-foreground">
-                {avatar?.level_name || 'Level 1'}
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {/* Connection status */}
-            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${isConnected ? 'bg-green-500/20' : 'bg-muted'}`}>
-              {isConnected ? (
-                <Wifi className="w-4 h-4 text-green-500" />
-              ) : (
-                <WifiOff className="w-4 h-4 text-muted-foreground" />
-              )}
-            </div>
-            <button
-              onClick={handleLogout}
-              className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors"
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Main Content Area */}
+      <main className="flex-1 pb-20 overflow-y-auto">
+        <AnimatePresence mode="wait">
+          {activeTab === 'home' && (
+            <motion.div
+              key="home"
+              initial={{ opacity: 0, x: -20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -20 }}
+              className="max-w-md mx-auto px-4 py-6"
             >
-              <LogOut className="w-5 h-5 text-muted-foreground" />
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Main Content */}
-      <main className="max-w-md mx-auto px-4 py-6">
-        {/* Avatar Window */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="mb-6"
-        >
-          <div 
-            className="relative rounded-3xl p-2 mx-auto max-w-[280px]"
-            style={{
-              background: 'linear-gradient(145deg, oklch(0.2 0.01 260), oklch(0.12 0.005 260))',
-              boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 oklch(0.3 0.01 260)',
-            }}
-          >
-            {/* State indicator */}
-            {stateInfo && (
-              <div className={`absolute -top-2 -right-2 z-10 px-2 py-1 rounded-full ${stateInfo.bg} flex items-center gap-1`}>
-                <StateIcon className={`w-3 h-3 ${stateInfo.color}`} />
-                <span className={`text-xs font-medium ${stateInfo.color}`}>{stateInfo.label}</span>
+              {/* Header */}
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
+                    <Sparkles className="w-5 h-5 text-primary" />
+                  </div>
+                  <div>
+                    <h1 className="font-semibold text-foreground">LikeGrow</h1>
+                    <p className="text-xs text-muted-foreground">
+                      {avatar?.level_name || 'Seedling'}
+                    </p>
+                  </div>
+                </div>
+                {/* Shop button */}
+                <button
+                  onClick={() => setShowShop(true)}
+                  className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                >
+                  <ShoppingBag className="w-5 h-5 text-muted-foreground" />
+                </button>
               </div>
-            )}
 
-            <div 
-              className="relative rounded-2xl overflow-hidden aspect-square"
-              style={{
-                boxShadow: 'inset 0 0 30px oklch(0.5 0.2 320 / 0.3), 0 0 20px oklch(0.5 0.2 320 / 0.2)',
-              }}
-            >
-              {avatarLoading ? (
-                <div className="w-full h-full bg-card flex items-center justify-center">
-                  <div className="w-12 h-12 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                </div>
-              ) : avatar?.current_video_url ? (
-                <video
-                  ref={videoRef}
-                  src={avatar.current_video_url}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover object-center"
-                  style={{ objectPosition: 'center center' }}
-                />
-              ) : avatar?.current_image_url ? (
-                <img
-                  src={avatar.current_image_url}
-                  alt="Your Avatar"
-                  className="w-full h-full object-cover object-center"
-                />
-              ) : (
-                <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center">
-                  <motion.div 
-                    className="text-6xl"
-                    animate={{ y: [0, -8, 0] }}
-                    transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                  >
-                    <Sparkles className="w-16 h-16 text-primary/50" />
-                  </motion.div>
-                </div>
-              )}
-
-              {/* Vignette */}
-              <div 
-                className="absolute inset-0 pointer-events-none"
-                style={{
-                  background: 'radial-gradient(circle, transparent 50%, oklch(0.1 0.01 260 / 0.4) 100%)',
-                }}
-              />
-            </div>
-
-            {/* Corner decorations */}
-            <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-primary/50 rounded-tl-xl" />
-            <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-primary/50 rounded-tr-xl" />
-            <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-primary/50 rounded-bl-xl" />
-            <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-primary/50 rounded-br-xl" />
-          </div>
-
-          {/* Personality type */}
-          {profile && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="text-center mt-4"
-            >
-              <h2 className="text-lg font-bold text-foreground">
-                {profile.personality_type}
-              </h2>
-              <p className="text-sm text-muted-foreground mt-1">
-                {user.first_name ? `${user.first_name}'s Avatar` : 'Your Avatar'}
-              </p>
-            </motion.div>
-          )}
-        </motion.div>
-
-        {/* Stats */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.1 }}
-          className="grid grid-cols-3 gap-3 mb-6"
-        >
-          <div className="glass-card rounded-2xl p-4 text-center">
-            <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center mx-auto mb-2">
-              <Star className="w-5 h-5 text-primary" />
-            </div>
-            <span className="text-lg font-bold text-foreground">
-              {avatar?.level || 1}
-            </span>
-            <p className="text-xs text-muted-foreground">Level</p>
-          </div>
-          <div className="glass-card rounded-2xl p-4 text-center">
-            <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center mx-auto mb-2">
-              <Trophy className="w-5 h-5 text-accent" />
-            </div>
-            <span className="text-lg font-bold text-foreground">
-              {avatar?.experience || 0}
-            </span>
-            <p className="text-xs text-muted-foreground">XP</p>
-          </div>
-          <div className="glass-card rounded-2xl p-4 text-center">
-            <div className="w-10 h-10 rounded-xl bg-yellow-500/20 flex items-center justify-center mx-auto mb-2">
-              <Coins className="w-5 h-5 text-yellow-500" />
-            </div>
-            <span className="text-lg font-bold text-foreground">
-              {avatar?.coins || 0}
-            </span>
-            <p className="text-xs text-muted-foreground">Coins</p>
-          </div>
-        </motion.div>
-
-        {/* Experience bar */}
-        {avatar && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.2 }}
-            className="mb-6 px-2"
-          >
-            <div className="flex justify-between text-xs text-muted-foreground mb-1">
-              <span>{avatar.level_name}</span>
-              <span>{avatar.experience}/{avatar.exp_to_next_level} XP</span>
-            </div>
-            <div className="h-2 bg-muted rounded-full overflow-hidden">
+              {/* Avatar Window */}
               <motion.div
-                className="h-full bg-gradient-to-r from-primary to-accent"
-                initial={{ width: 0 }}
-                animate={{ width: `${avatar.exp_progress_percent}%` }}
-                transition={{ delay: 0.4, duration: 1 }}
-              />
-            </div>
-          </motion.div>
-        )}
-
-        {/* Warning for tired/degraded state */}
-        {avatar && (avatar.state === 'tired' || avatar.state === 'degraded') && (
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className={`mb-6 p-4 rounded-2xl border ${
-              avatar.state === 'degraded' 
-                ? 'bg-red-500/10 border-red-500/30' 
-                : 'bg-yellow-500/10 border-yellow-500/30'
-            }`}
-          >
-            <p className={`text-sm font-medium ${
-              avatar.state === 'degraded' ? 'text-red-400' : 'text-yellow-400'
-            }`}>
-              {avatar.state === 'degraded' 
-                ? 'Your avatar is degrading! Feed them content soon!' 
-                : 'Your avatar is getting tired. Share some content!'}
-            </p>
-          </motion.div>
-        )}
-
-        {/* Add Post Button */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.3 }}
-          className="mb-6"
-        >
-          <Button
-            onClick={() => setShowPostModal(true)}
-            className="w-full py-6 rounded-2xl bg-primary text-primary-foreground font-semibold text-lg gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            Feed Your Avatar
-          </Button>
-          <p className="text-center text-xs text-muted-foreground mt-2">
-            Share TikTok or Instagram links to grow your avatar
-          </p>
-        </motion.div>
-
-        {/* Account Info */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.4 }}
-          className="glass-card rounded-2xl p-4"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
-              <User className="w-5 h-5 text-muted-foreground" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="font-medium text-foreground text-sm truncate">
-                {user.email}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                {avatar?.saved_posts_count || 0} posts saved
-              </p>
-            </div>
-          </div>
-        </motion.div>
-      </main>
-
-      {/* Post Submission Modal */}
-      <AnimatePresence>
-        {showPostModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-50 bg-background/80 backdrop-blur-sm flex items-end justify-center"
-            onClick={() => !isSubmitting && setShowPostModal(false)}
-          >
-            <motion.div
-              initial={{ y: '100%' }}
-              animate={{ y: 0 }}
-              exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25 }}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full max-w-md bg-card border-t border-border rounded-t-3xl p-6"
-            >
-              {/* Close button */}
-              <button
-                onClick={() => !isSubmitting && setShowPostModal(false)}
-                className="absolute top-4 right-4 w-8 h-8 rounded-full bg-muted flex items-center justify-center"
-                disabled={isSubmitting}
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mb-6"
               >
-                <X className="w-4 h-4 text-muted-foreground" />
-              </button>
+                <div 
+                  className="relative rounded-3xl p-2 mx-auto max-w-[280px]"
+                  style={{
+                    background: 'linear-gradient(145deg, oklch(0.2 0.01 260), oklch(0.12 0.005 260))',
+                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 oklch(0.3 0.01 260)',
+                  }}
+                >
+                  {/* State indicator */}
+                  {stateInfo && (
+                    <div className={`absolute -top-2 -right-2 z-10 px-2 py-1 rounded-full ${stateInfo.bg} flex items-center gap-1`}>
+                      <StateIcon className={`w-3 h-3 ${stateInfo.color}`} />
+                      <span className={`text-xs font-medium ${stateInfo.color}`}>{stateInfo.label}</span>
+                    </div>
+                  )}
 
-              {/* Success/Error Result */}
-              <AnimatePresence>
-                {showResult && submitResult && (
-                  <motion.div
-                    initial={{ opacity: 0, scale: 0.9 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    exit={{ opacity: 0, scale: 0.9 }}
-                    className="absolute inset-0 bg-card rounded-t-3xl flex items-center justify-center p-6"
+                  <div 
+                    className="relative rounded-2xl overflow-hidden aspect-square"
+                    style={{
+                      boxShadow: 'inset 0 0 30px oklch(0.5 0.2 320 / 0.3), 0 0 20px oklch(0.5 0.2 320 / 0.2)',
+                    }}
                   >
-                    {submitResult.ok ? (
-                      <div className="text-center">
-                        <motion.div
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ type: 'spring', damping: 10 }}
-                          className="w-20 h-20 rounded-full bg-green-500/20 flex items-center justify-center mx-auto mb-4"
-                        >
-                          <CheckCircle2 className="w-10 h-10 text-green-500" />
-                        </motion.div>
-                        <h3 className="text-xl font-bold text-foreground mb-2">Content Added!</h3>
-                        <div className="flex items-center justify-center gap-4 mb-4">
-                          <div className="flex items-center gap-1">
-                            <Trophy className="w-5 h-5 text-accent" />
-                            <span className="font-bold text-accent">+{submitResult.xp || 0} XP</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Coins className="w-5 h-5 text-yellow-500" />
-                            <span className="font-bold text-yellow-500">+{submitResult.coins || 0}</span>
-                          </div>
-                        </div>
-                        {submitResult.leveled_up && (
-                          <motion.div
-                            initial={{ opacity: 0, y: 10 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="px-4 py-2 bg-primary/20 rounded-full inline-flex items-center gap-2"
-                          >
-                            <Star className="w-4 h-4 text-primary" />
-                            <span className="text-sm font-medium text-primary">
-                              Level Up! Now Level {submitResult.new_level}
-                            </span>
-                          </motion.div>
-                        )}
+                    {avatarLoading ? (
+                      <div className="w-full h-full bg-card flex items-center justify-center">
+                        <div className="w-12 h-12 rounded-full border-2 border-primary border-t-transparent animate-spin" />
                       </div>
+                    ) : avatar?.current_video_url ? (
+                      <video
+                        ref={videoRef}
+                        src={avatar.current_video_url}
+                        autoPlay
+                        loop
+                        muted
+                        playsInline
+                        className="w-full h-full object-cover object-center"
+                      />
+                    ) : avatar?.current_image_url ? (
+                      <img
+                        src={avatar.current_image_url}
+                        alt="Your Avatar"
+                        className="w-full h-full object-cover object-center"
+                      />
                     ) : (
-                      <div className="text-center">
-                        <div className="w-20 h-20 rounded-full bg-destructive/20 flex items-center justify-center mx-auto mb-4">
-                          <X className="w-10 h-10 text-destructive" />
-                        </div>
-                        <h3 className="text-xl font-bold text-foreground mb-2">Oops!</h3>
-                        <p className="text-muted-foreground">{submitResult.error}</p>
+                      <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex flex-col items-center justify-center p-4">
+                        <motion.div 
+                          animate={{ y: [0, -8, 0] }}
+                          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                        >
+                          <Sparkles className="w-16 h-16 text-primary/50 mb-4" />
+                        </motion.div>
+                        <p className="text-xs text-muted-foreground text-center">
+                          Feed content to see your avatar
+                        </p>
                       </div>
                     )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
 
-              {/* Form */}
-              {!showResult && (
-                <>
-                  <div className="w-12 h-1 bg-muted rounded-full mx-auto mb-6" />
-                  
-                  <h3 className="text-xl font-bold text-foreground mb-2">Add Content</h3>
-                  <p className="text-sm text-muted-foreground mb-6">
-                    Paste a TikTok or Instagram link to feed your avatar
-                  </p>
-
-                  {/* URL Input */}
-                  <div className="relative mb-4">
-                    <Link2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
-                    <input
-                      type="url"
-                      value={postUrl}
-                      onChange={(e) => setPostUrl(e.target.value)}
-                      placeholder="https://www.tiktok.com/..."
-                      className="w-full pl-12 pr-4 py-4 bg-muted border border-border rounded-2xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                      disabled={isSubmitting}
+                    {/* Vignette */}
+                    <div 
+                      className="absolute inset-0 pointer-events-none"
+                      style={{
+                        background: 'radial-gradient(circle, transparent 50%, oklch(0.1 0.01 260 / 0.4) 100%)',
+                      }}
                     />
                   </div>
 
-                  {/* Error message */}
-                  {lastError && (
-                    <p className="text-sm text-destructive mb-4">{lastError}</p>
-                  )}
+                  {/* Corner decorations */}
+                  <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-primary/50 rounded-tl-xl" />
+                  <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-primary/50 rounded-tr-xl" />
+                  <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-primary/50 rounded-bl-xl" />
+                  <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-primary/50 rounded-br-xl" />
+                </div>
 
-                  {/* Submit button */}
-                  <Button
-                    onClick={handleSubmitPost}
-                    disabled={!postUrl.trim() || isSubmitting || !isConnected}
-                    className="w-full py-6 rounded-2xl bg-primary text-primary-foreground font-semibold gap-2"
+                {/* Personality type */}
+                {profile && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.3 }}
+                    className="text-center mt-4"
                   >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="w-5 h-5 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
-                      <>
-                        <Send className="w-5 h-5" />
-                        Submit
-                      </>
-                    )}
-                  </Button>
+                    <h2 className="text-lg font-bold text-foreground">
+                      {profile.personality_type}
+                    </h2>
+                  </motion.div>
+                )}
+              </motion.div>
 
-                  {!isConnected && (
-                    <p className="text-xs text-yellow-500 text-center mt-3">
-                      Connecting to server...
-                    </p>
-                  )}
+              {/* Stats */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.1 }}
+                className="grid grid-cols-3 gap-3 mb-6"
+              >
+                <div className="glass-card rounded-2xl p-4 text-center">
+                  <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center mx-auto mb-2">
+                    <Star className="w-5 h-5 text-primary" />
+                  </div>
+                  <span className="text-lg font-bold text-foreground">
+                    {avatar?.level || 1}
+                  </span>
+                  <p className="text-xs text-muted-foreground">Level</p>
+                </div>
+                <div className="glass-card rounded-2xl p-4 text-center">
+                  <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center mx-auto mb-2">
+                    <Trophy className="w-5 h-5 text-accent" />
+                  </div>
+                  <span className="text-lg font-bold text-foreground">
+                    {avatar?.experience || 0}
+                  </span>
+                  <p className="text-xs text-muted-foreground">XP</p>
+                </div>
+                <div className="glass-card rounded-2xl p-4 text-center">
+                  <div className="w-10 h-10 rounded-xl bg-yellow-500/20 flex items-center justify-center mx-auto mb-2">
+                    <Coins className="w-5 h-5 text-yellow-500" />
+                  </div>
+                  <span className="text-lg font-bold text-foreground">
+                    {avatar?.coins || 0}
+                  </span>
+                  <p className="text-xs text-muted-foreground">Coins</p>
+                </div>
+              </motion.div>
 
-                  <p className="text-xs text-muted-foreground text-center mt-4">
-                    Processing may take 1-2 minutes
-                  </p>
-                </>
+              {/* Experience bar */}
+              {avatar && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ delay: 0.2 }}
+                  className="mb-6 px-2"
+                >
+                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
+                    <span>{avatar.level_name}</span>
+                    <span>{avatar.experience}/{avatar.exp_to_next_level} XP</span>
+                  </div>
+                  <div className="h-2 bg-muted rounded-full overflow-hidden">
+                    <motion.div
+                      className="h-full bg-gradient-to-r from-primary to-accent"
+                      initial={{ width: 0 }}
+                      animate={{ width: `${avatar.exp_progress_percent}%` }}
+                      transition={{ delay: 0.4, duration: 1 }}
+                    />
+                  </div>
+                </motion.div>
               )}
+
+              {/* Warning for tired/degraded state */}
+              {avatar && (avatar.state === 'tired' || avatar.state === 'degraded') && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  className={`mb-6 p-4 rounded-2xl border ${
+                    avatar.state === 'degraded' 
+                      ? 'bg-red-500/10 border-red-500/30' 
+                      : 'bg-yellow-500/10 border-yellow-500/30'
+                  }`}
+                >
+                  <p className={`text-sm font-medium ${
+                    avatar.state === 'degraded' ? 'text-red-400' : 'text-yellow-400'
+                  }`}>
+                    {avatar.state === 'degraded' 
+                      ? 'Your avatar is degrading! Feed them content soon!' 
+                      : 'Your avatar is getting tired. Share some content!'}
+                  </p>
+                </motion.div>
+              )}
+
+              {/* Account Info */}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.4 }}
+                className="glass-card rounded-2xl p-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
+                    <User className="w-5 h-5 text-muted-foreground" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="font-medium text-foreground text-sm truncate">
+                      {user.email}
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {avatar?.saved_posts_count || 0} posts saved
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      logout();
+                      window.location.href = '/';
+                    }}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Logout
+                  </button>
+                </div>
+              </motion.div>
             </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+          )}
+
+          {activeTab === 'feed' && (
+            <motion.div
+              key="feed"
+              initial={{ opacity: 0, x: 20 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: 20 }}
+              className="max-w-md mx-auto px-4 py-6"
+            >
+              {/* Feed Header */}
+              <div className="mb-6">
+                <h1 className="text-2xl font-bold text-foreground mb-1">Feed Your Avatar</h1>
+                <p className="text-sm text-muted-foreground">
+                  Paste TikTok or Instagram links to earn XP and coins
+                </p>
+              </div>
+
+              {/* URL Input */}
+              <div className="mb-6">
+                <div className="relative mb-3">
+                  <Link2 className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
+                  <input
+                    type="url"
+                    value={postUrl}
+                    onChange={(e) => setPostUrl(e.target.value)}
+                    placeholder="https://www.tiktok.com/..."
+                    className="w-full pl-12 pr-4 py-4 bg-card border border-border rounded-2xl text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                    onKeyDown={(e) => e.key === 'Enter' && handleSubmitPost()}
+                  />
+                </div>
+                <Button
+                  onClick={handleSubmitPost}
+                  disabled={!postUrl.trim() || isSubmitting || !isConnected}
+                  className="w-full py-4 rounded-2xl bg-primary text-primary-foreground font-semibold gap-2"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      <Send className="w-5 h-5" />
+                      Submit Link
+                    </>
+                  )}
+                </Button>
+                {!isConnected && (
+                  <p className="text-xs text-destructive text-center mt-2">
+                    Connecting to server...
+                  </p>
+                )}
+              </div>
+
+              {/* History */}
+              <div>
+                <div className="flex items-center gap-2 mb-4">
+                  <Clock className="w-4 h-4 text-muted-foreground" />
+                  <h2 className="text-sm font-medium text-muted-foreground">Recent Activity</h2>
+                </div>
+
+                {history.length === 0 ? (
+                  <div className="text-center py-12 text-muted-foreground">
+                    <ListPlus className="w-12 h-12 mx-auto mb-3 opacity-30" />
+                    <p className="text-sm">No content yet</p>
+                    <p className="text-xs mt-1">Paste a link above to get started</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {history.map((item) => (
+                      <motion.div
+                        key={item.id}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={`p-4 rounded-2xl border ${
+                          item.status === 'processing'
+                            ? 'bg-card border-border'
+                            : item.status === 'success'
+                            ? 'bg-green-500/5 border-green-500/20'
+                            : 'bg-red-500/5 border-red-500/20'
+                        }`}
+                      >
+                        <div className="flex items-start gap-3">
+                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                            item.status === 'processing'
+                              ? 'bg-primary/20'
+                              : item.status === 'success'
+                              ? 'bg-green-500/20'
+                              : 'bg-red-500/20'
+                          }`}>
+                            {item.status === 'processing' ? (
+                              <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                            ) : item.status === 'success' ? (
+                              <CheckCircle2 className="w-5 h-5 text-green-500" />
+                            ) : (
+                              <X className="w-5 h-5 text-red-500" />
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-xs font-medium text-muted-foreground">
+                                {extractDomain(item.url)}
+                              </span>
+                              <ExternalLink className="w-3 h-3 text-muted-foreground" />
+                            </div>
+                            <p className="text-xs text-muted-foreground truncate mb-2">
+                              {item.url}
+                            </p>
+                            {item.status === 'success' && (
+                              <div className="flex items-center gap-3">
+                                <span className="text-sm font-medium text-accent">
+                                  +{item.xp} XP
+                                </span>
+                                <span className="text-sm font-medium text-yellow-500">
+                                  +{item.coins} coins
+                                </span>
+                              </div>
+                            )}
+                            {item.status === 'processing' && (
+                              <p className="text-xs text-muted-foreground">
+                                Processing... this may take 1-2 minutes
+                              </p>
+                            )}
+                            {item.status === 'error' && (
+                              <p className="text-xs text-red-400">
+                                {item.error || 'Failed to process'}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </main>
+
+      {/* Bottom Tab Bar */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-card/90 backdrop-blur-lg border-t border-border z-50">
+        <div className="max-w-md mx-auto px-6 py-3 flex items-center justify-around">
+          <button
+            onClick={() => setActiveTab('home')}
+            className={`flex flex-col items-center gap-1 py-2 px-6 rounded-xl transition-colors ${
+              activeTab === 'home' 
+                ? 'text-primary bg-primary/10' 
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <Home className="w-6 h-6" />
+            <span className="text-xs font-medium">Home</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('feed')}
+            className={`flex flex-col items-center gap-1 py-2 px-6 rounded-xl transition-colors ${
+              activeTab === 'feed' 
+                ? 'text-primary bg-primary/10' 
+                : 'text-muted-foreground hover:text-foreground'
+            }`}
+          >
+            <ListPlus className="w-6 h-6" />
+            <span className="text-xs font-medium">Feed</span>
+          </button>
+        </div>
+      </nav>
+
+      {/* Shop Sheet */}
+      <Sheet open={showShop} onOpenChange={setShowShop}>
+        <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl">
+          <SheetHeader>
+            <SheetTitle className="text-xl">Shop</SheetTitle>
+            <SheetDescription>
+              Spend your coins on accessories and items for your avatar
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 flex items-center justify-center py-12">
+            <div className="text-center">
+              <ShoppingBag className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
+              <p className="text-muted-foreground">Coming soon!</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                You have {avatar?.coins || 0} coins to spend
+              </p>
+            </div>
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }

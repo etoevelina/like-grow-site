@@ -31,7 +31,10 @@ export interface SocketState {
   lastError: string | null;
 }
 
-export function useSocket(onAvatarUpdate?: (avatar: Avatar) => void) {
+export function useSocket(
+  onAvatarUpdate?: (avatar: Avatar) => void,
+  onContentResult?: (result: ContentSubmitResult) => void
+) {
   const [state, setState] = useState<SocketState>({
     isConnected: false,
     isSubmitting: false,
@@ -40,11 +43,16 @@ export function useSocket(onAvatarUpdate?: (avatar: Avatar) => void) {
   
   const socketRef = useRef<Socket | null>(null);
   const onAvatarUpdateRef = useRef(onAvatarUpdate);
+  const onContentResultRef = useRef(onContentResult);
   
-  // Keep the callback ref updated
+  // Keep the callback refs updated
   useEffect(() => {
     onAvatarUpdateRef.current = onAvatarUpdate;
   }, [onAvatarUpdate]);
+  
+  useEffect(() => {
+    onContentResultRef.current = onContentResult;
+  }, [onContentResult]);
 
   // Connect to socket
   useEffect(() => {
@@ -93,6 +101,11 @@ export function useSocket(onAvatarUpdate?: (avatar: Avatar) => void) {
       
       if (payload.ok && payload.avatar && onAvatarUpdateRef.current) {
         onAvatarUpdateRef.current(payload.avatar);
+      }
+      
+      // Notify about the result
+      if (onContentResultRef.current) {
+        onContentResultRef.current(payload);
       }
     });
 

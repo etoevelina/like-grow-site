@@ -96,6 +96,7 @@ export async function createAvatar(quizAnswers: QuizAnswer[]): Promise<{
 // Save avatar data to localStorage
 export function saveAvatarData(avatar: Avatar, profile: AvatarProfile): void {
   if (typeof window === 'undefined') return;
+  console.log('[v0] saveAvatarData - saving:', { avatar, profile });
   localStorage.setItem('avatar_data', JSON.stringify({ avatar, profile }));
 }
 
@@ -103,10 +104,14 @@ export function saveAvatarData(avatar: Avatar, profile: AvatarProfile): void {
 export function getSavedAvatarData(): { avatar: Avatar; profile: AvatarProfile } | null {
   if (typeof window === 'undefined') return null;
   const data = localStorage.getItem('avatar_data');
+  console.log('[v0] getSavedAvatarData - raw data:', data);
   if (!data) return null;
   try {
-    return JSON.parse(data);
-  } catch {
+    const parsed = JSON.parse(data);
+    console.log('[v0] getSavedAvatarData - parsed:', parsed);
+    return parsed;
+  } catch (e) {
+    console.log('[v0] getSavedAvatarData - parse error:', e);
     return null;
   }
 }
@@ -122,13 +127,18 @@ export async function getAvatar(): Promise<{
   data?: { avatar: Avatar; profile: AvatarProfile };
   error?: string;
 }> {
+  // First, try to get cached data for quick display
+  const cachedData = getSavedAvatarData();
+  console.log('[v0] getAvatar - cached data:', cachedData);
+
   try {
     const token = getAccessToken();
+    console.log('[v0] getAvatar - token exists:', !!token);
+    
     if (!token) {
-      // Try to get from localStorage
-      const saved = getSavedAvatarData();
-      if (saved) {
-        return { success: true, data: saved };
+      // No token - use cache if available
+      if (cachedData) {
+        return { success: true, data: cachedData };
       }
       return { success: false, error: 'Not authenticated' };
     }
@@ -140,27 +150,40 @@ export async function getAvatar(): Promise<{
       },
     });
 
+    console.log('[v0] getAvatar - response status:', response.status);
+
     const data = await response.json();
+    console.log('[v0] getAvatar - response data:', data);
 
     if (!response.ok) {
-      // Try localStorage as fallback
-      const saved = getSavedAvatarData();
-      if (saved) {
-        return { success: true, data: saved };
+      // API error - try cache as fallback
+      if (cachedData) {
+        console.log('[v0] getAvatar - using cache after API error');
+        return { success: true, data: cachedData };
       }
-      return { success: false, error: data.message || 'Failed to get avatar' };
+      return { success: false, error: data.error || data.message || 'Failed to get avatar' };
     }
 
-    // Update localStorage with fresh data
-    saveAvatarData(data.avatar, data.profile);
+    // Success - update cache with fresh data from API
+    if (data.avatar) {
+      // API returns { avatar: {...} } for GET /api/avatar
+      const profile = cachedData?.profile || {
+        personality_type: 'Explorer',
+        personality_description: '',
+        interests: [],
+        content_style: '',
+      };
+      saveAvatarData(data.avatar, profile);
+      return { success: true, data: { avatar: data.avatar, profile } };
+    }
 
     return { success: true, data };
   } catch (error) {
-    console.error('Get avatar error:', error);
-    // Try localStorage as fallback
-    const saved = getSavedAvatarData();
-    if (saved) {
-      return { success: true, data: saved };
+    console.error('[v0] Get avatar error:', error);
+    // Network error - try cache as fallback
+    if (cachedData) {
+      console.log('[v0] getAvatar - using cache after network error');
+      return { success: true, data: cachedData };
     }
     return { success: false, error: 'Network error. Please try again.' };
   }

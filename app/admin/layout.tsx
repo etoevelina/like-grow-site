@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
-import { checkAdminAccess } from '@/lib/admin-api';
 import { LayoutDashboard, FileText, ShoppingBag, ArrowLeft, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -29,14 +28,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return;
     }
 
-    // Check admin access
-    checkAdminAccess().then(hasAccess => {
-      if (!hasAccess) {
-        router.push('/dashboard');
-      } else {
-        setIsAdmin(true);
-      }
-    });
+    // Check admin access from JWT token role (already decoded in use-auth)
+    const hasAccess = user.role === 'admin';
+    if (!hasAccess) {
+      router.push('/dashboard');
+    } else {
+      setIsAdmin(true);
+    }
   }, [user, loading, router]);
 
   if (loading || isAdmin === null) {

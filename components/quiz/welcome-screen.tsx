@@ -60,16 +60,16 @@ export function WelcomeScreen({ onStart, onLogin }: WelcomeScreenProps) {
         Discover your digital self through a quick interactive quiz
       </motion.p>
 
-      {/* Video Preview - natural size, what fits fits */}
+      {/* Video Preview - large size, overflow hidden beyond screen */}
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.3, type: 'spring', stiffness: 150 }}
-        className="relative mb-12 cursor-pointer"
+        className="relative mb-12 cursor-pointer w-full flex justify-center overflow-hidden"
         onClick={handleVideoClick}
       >
-        {/* Video container */}
-        <div className="relative w-56 bg-background rounded-3xl overflow-hidden">
+        {/* Video container - 80% of screen width, max 400px */}
+        <div className="relative w-[80vw] max-w-[400px] bg-background">
           {/* Poster image shown until video loads */}
           {!videoLoaded && (
             <img

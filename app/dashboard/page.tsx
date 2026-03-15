@@ -4,6 +4,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuth } from '@/hooks/use-auth';
+import { useSocket } from '@/hooks/use-socket';
 import { 
   User, Sparkles, Trophy, Coins, Star, 
   Link2, Send, Loader2, CheckCircle2,
@@ -128,9 +129,12 @@ export default function DashboardPage() {
   const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);
   const [savedPostsTotal, setSavedPostsTotal] = useState(0);
   
-  // Socket (optional - HTTP fallback is available)
-  const socketRef = useRef<Socket | null>(null);
-  const [isConnected, setIsConnected] = useState(true); // Default true - HTTP works without WebSocket
+  // Socket for real-time avatar updates
+  const handleAvatarUpdate = useCallback((updatedAvatar: AvatarType) => {
+    setAvatar(updatedAvatar);
+  }, []);
+
+  const { isConnected, socket } = useSocket(handleAvatarUpdate);
   
   // UI state
   const [activeTab, setActiveTab] = useState<'home' | 'feed'>('home');
@@ -465,6 +469,29 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground">Coins</p>
           </motion.div>
         </div>
+
+        {/* Avatar Status */}
+        {avatar && avatar.state !== 'healthy' && (
+          <motion.div
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`glass-card rounded-2xl p-4 mb-6 flex items-center gap-3 border-l-4 ${
+              avatar.state === 'tired' 
+                ? 'border-l-yellow-500 bg-yellow-500/5'
+                : 'border-l-red-500 bg-red-500/5'
+            }`}
+          >
+            <StateIcon state={avatar.state} />
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground capitalize">{avatar.state}</p>
+              <p className="text-xs text-muted-foreground">
+                {avatar.state === 'tired'
+                  ? 'Your avatar is getting tired. Share some content to keep them happy!'
+                  : 'Your avatar is neglected. Share content to revive them!'}
+              </p>
+            </div>
+          </motion.div>
+        )}
 
         {/* Experience Progress */}
         {avatar && (

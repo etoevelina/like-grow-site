@@ -1,8 +1,9 @@
 'use client';
 
 import { motion } from 'framer-motion';
-import { ArrowRight, Sparkles } from 'lucide-react';
+import { ArrowRight } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { useRef, useState, useEffect } from 'react';
 
 interface WelcomeScreenProps {
   onStart: () => void;
@@ -10,6 +11,29 @@ interface WelcomeScreenProps {
 }
 
 export function WelcomeScreen({ onStart, onLogin }: WelcomeScreenProps) {
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [videoLoaded, setVideoLoaded] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+
+  // Preload video on mount
+  useEffect(() => {
+    if (videoRef.current) {
+      videoRef.current.load();
+    }
+  }, []);
+
+  const handleVideoClick = () => {
+    if (videoRef.current) {
+      if (isPlaying) {
+        videoRef.current.pause();
+        setIsPlaying(false);
+      } else {
+        videoRef.current.play();
+        setIsPlaying(true);
+      }
+    }
+  };
+
   return (
     <motion.div
       initial={{ opacity: 0 }}
@@ -17,23 +41,11 @@ export function WelcomeScreen({ onStart, onLogin }: WelcomeScreenProps) {
       exit={{ opacity: 0 }}
       className="min-h-screen flex flex-col items-center justify-center px-6 py-12"
     >
-      {/* Logo */}
-      <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-        className="mb-8"
-      >
-        <div className="w-20 h-20 rounded-3xl bg-primary/20 border border-primary/30 flex items-center justify-center">
-          <Sparkles className="w-10 h-10 text-primary" />
-        </div>
-      </motion.div>
-
       {/* Title */}
       <motion.h1
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.2 }}
+        transition={{ delay: 0.1 }}
         className="text-4xl font-bold text-foreground mb-3 text-center"
       >
         LikeGrow
@@ -42,45 +54,66 @@ export function WelcomeScreen({ onStart, onLogin }: WelcomeScreenProps) {
       <motion.p
         initial={{ y: 20, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
-        transition={{ delay: 0.3 }}
+        transition={{ delay: 0.2 }}
         className="text-muted-foreground text-center mb-10 max-w-xs leading-relaxed"
       >
         Discover your digital self through a quick interactive quiz
       </motion.p>
 
-      {/* Avatar Preview */}
+      {/* Video Preview - Square crop from center */}
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        transition={{ delay: 0.4, type: 'spring', stiffness: 150 }}
+        transition={{ delay: 0.3, type: 'spring', stiffness: 150 }}
         className="relative mb-12"
+        onClick={handleVideoClick}
       >
-        {/* Glow effect */}
-        <div className="absolute inset-0 rounded-full bg-primary/30 blur-3xl" />
-        
-        {/* Avatar container */}
-        <div className="relative w-48 h-48 rounded-full glass-card flex items-center justify-center">
-          <div className="w-40 h-40 rounded-full bg-gradient-to-br from-primary/40 to-accent/40 flex items-center justify-center">
-            <span className="text-6xl">?</span>
-          </div>
+        {/* Video container - square aspect ratio with overflow hidden to crop */}
+        <div className="relative w-56 h-56 rounded-3xl overflow-hidden bg-background cursor-pointer">
+          {/* Poster image shown until video loads */}
+          {!videoLoaded && (
+            <img
+              src="/images/intro-poster.png"
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          )}
+          
+          {/* Video - positioned to show center square */}
+          <video
+            ref={videoRef}
+            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full object-cover"
+            poster="/images/intro-poster.png"
+            playsInline
+            loop
+            preload="auto"
+            onLoadedData={() => setVideoLoaded(true)}
+            onEnded={() => setIsPlaying(false)}
+          >
+            <source src="/videos/intro-logo.mp4" type="video/mp4" />
+          </video>
+
+          {/* Play indicator */}
+          {!isPlaying && videoLoaded && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/20">
+              <div className="w-12 h-12 rounded-full bg-background/80 flex items-center justify-center">
+                <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[14px] border-l-foreground border-b-[8px] border-b-transparent ml-1" />
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Floating elements */}
-        <motion.div
-          animate={{ y: [-5, 5, -5] }}
-          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute -top-2 -right-2 w-10 h-10 rounded-full bg-accent/20 border border-accent/30 flex items-center justify-center text-sm font-medium text-accent"
-        >
-          +5
-        </motion.div>
-
-        <motion.div
-          animate={{ y: [5, -5, 5] }}
-          transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
-          className="absolute -bottom-2 -left-2 w-12 h-12 rounded-full bg-primary/20 border border-primary/30 flex items-center justify-center"
-        >
-          <Sparkles className="w-5 h-5 text-primary" />
-        </motion.div>
+        {/* Tap to play hint */}
+        {!isPlaying && (
+          <motion.p
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.5 }}
+            className="text-center text-xs text-muted-foreground mt-3"
+          >
+            Tap to play with sound
+          </motion.p>
+        )}
       </motion.div>
 
       {/* Features list */}

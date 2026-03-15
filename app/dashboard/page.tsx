@@ -274,6 +274,13 @@ export default function DashboardPage() {
     setIsGenerating(false);
   };
 
+  // Auto-redirect to Home if on Feed but avatar not ready
+  useEffect(() => {
+    if (activeTab === 'feed' && !avatarReady) {
+      setActiveTab('home');
+    }
+  }, [avatarReady, activeTab]);
+
   // Load saved posts
   useEffect(() => {
     async function loadPosts() {
@@ -703,7 +710,12 @@ export default function DashboardPage() {
           </button>
           <button
             onClick={() => setActiveTab('feed')}
-            className={`flex-1 py-4 flex flex-col items-center gap-1 ${activeTab === 'feed' ? 'text-primary' : 'text-muted-foreground'}`}
+            disabled={!avatarReady}
+            className={`flex-1 py-4 flex flex-col items-center gap-1 transition-colors ${
+              !avatarReady 
+                ? 'opacity-50 cursor-not-allowed text-muted-foreground' 
+                : activeTab === 'feed' ? 'text-primary' : 'text-muted-foreground'
+            }`}
           >
             <ListPlus className="w-5 h-5" />
             <span className="text-xs">Feed</span>

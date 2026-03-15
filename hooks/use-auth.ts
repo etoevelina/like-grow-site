@@ -10,6 +10,7 @@ export interface User {
   first_name?: string;
   last_name?: string;
   is_verified: boolean;
+  role?: 'user' | 'admin';
 }
 
 interface AuthState {

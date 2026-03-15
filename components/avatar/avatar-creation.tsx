@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ChevronRight, ChevronLeft, TrendingUp, Skull, Baby } from 'lucide-react';
 import { createAvatar, formatQuizAnswers, Avatar, AvatarProfile, QuizAnswer, saveAvatarData } from '@/lib/avatar-api';
@@ -44,43 +44,35 @@ const ONBOARDING_SLIDES = [
 export function AvatarCreation({ quizState, onComplete }: AvatarCreationProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [creationStatus, setCreationStatus] = useState<'creating' | 'waiting' | 'ready'>('creating');
-  const [hasStartedCreation, setHasStartedCreation] = useState(false);
+  const creationSentRef = useRef(false);
 
-  // Start avatar creation when component mounts
-  const createAvatarFromQuiz = useCallback(async () => {
-    if (hasStartedCreation) return;
-    setHasStartedCreation(true);
+  // Start avatar creation once when component mounts (ref prevents double send in React Strict Mode)
+  useEffect(() => {
+    if (creationSentRef.current) return;
+    creationSentRef.current = true;
     setCreationStatus('creating');
-    
-    try {
-      const answers: QuizAnswer[] = formatQuizAnswers(quizState);
-      const result = await createAvatar(answers);
-      
-      if (result.success && result.data) {
-        // Save to localStorage for dashboard
-        saveAvatarData(result.data.avatar, result.data.profile);
-        // Mark as creating (dashboard will handle the reveal)
-        localStorage.setItem('avatar_creating', 'true');
-        
-        // Check if avatar has video/image already
-        if (result.data.avatar.current_video_url || result.data.avatar.current_image_url) {
-          setCreationStatus('ready');
+
+    (async () => {
+      try {
+        const answers: QuizAnswer[] = formatQuizAnswers(quizState);
+        const result = await createAvatar(answers);
+
+        if (result.success && result.data && result.data.avatar) {
+          saveAvatarData(result.data.avatar, result.data.profile);
+          localStorage.setItem('avatar_creating', 'true');
+          if (result.data.avatar.current_video_url || result.data.avatar.current_image_url) {
+            setCreationStatus('ready');
+          } else {
+            setCreationStatus('waiting');
+          }
         } else {
-          // API call done, but video still generating
           setCreationStatus('waiting');
         }
-      } else {
+      } catch {
         setCreationStatus('waiting');
       }
-    } catch {
-      // Continue anyway - dashboard will retry
-      setCreationStatus('waiting');
-    }
-  }, [quizState, hasStartedCreation]);
-
-  useEffect(() => {
-    createAvatarFromQuiz();
-  }, [createAvatarFromQuiz]);
+    })();
+  }, [quizState]);
 
   const handleNext = () => {
     if (currentSlide < ONBOARDING_SLIDES.length - 1) {

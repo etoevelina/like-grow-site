@@ -1,4 +1,4 @@
-const API_BASE = 'https://goldfish-app-ohjd4.ondigitalocean.app';
+import { API_URL } from './api-config';
 
 export interface QuizAnswer {
   question: string;
@@ -66,7 +66,7 @@ export async function createAvatar(quizAnswers: QuizAnswer[]): Promise<{
       return { success: false, error: 'Not authenticated' };
     }
 
-    const response = await fetch(`${API_BASE}/api/avatar/quiz`, {
+    const response = await fetch(`${API_URL}/avatar/quiz`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -136,7 +136,7 @@ export async function getAvatar(): Promise<{
       return { success: false, error: 'Not authenticated' };
     }
 
-    const response = await fetch(`${API_BASE}/api/avatar`, {
+    const response = await fetch(`${API_URL}/avatar`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -146,17 +146,19 @@ export async function getAvatar(): Promise<{
     const data = await response.json();
 
     if (!response.ok) {
-      // API error - try cache as fallback
-      if (cachedData) {
+      // 404 = no avatar for this user — clear cache so we don't show another user's data
+      if (response.status === 404) {
+        clearAvatarData();
+      }
+      if (cachedData && response.status !== 404) {
         return { success: true, data: cachedData };
       }
       return { success: false, error: data.error || data.message || 'Failed to get avatar' };
     }
 
-    // Success - update cache with fresh data from API
+    // Success - update cache with fresh data from API (backend returns { avatar, profile })
     if (data.avatar) {
-      // API returns { avatar: {...} } for GET /api/avatar
-      const profile = cachedData?.profile || {
+      const profile = data.profile || cachedData?.profile || {
         personality_type: 'Explorer',
         personality_description: '',
         interests: [],
@@ -166,7 +168,7 @@ export async function getAvatar(): Promise<{
       return { success: true, data: { avatar: data.avatar, profile } };
     }
 
-    return { success: true, data };
+    return { success: true, data: cachedData ?? undefined };
   } catch {
     // Network error - try cache as fallback
     if (cachedData) {
@@ -188,7 +190,7 @@ export async function getAvatarProfile(): Promise<{
       return { success: false, error: 'Not authenticated' };
     }
 
-    const response = await fetch(`${API_BASE}/api/avatar/profile`, {
+    const response = await fetch(`${API_URL}/avatar/profile`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -238,7 +240,7 @@ export async function submitContent(url: string): Promise<{
       return { success: false, error: 'Not authenticated' };
     }
 
-    const response = await fetch(`${API_BASE}/api/content/submit`, {
+    const response = await fetch(`${API_URL}/content/submit`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -290,7 +292,7 @@ export async function getSavedPosts(limit: number = 20, offset: number = 0): Pro
       return { success: false, error: 'Not authenticated' };
     }
 
-    const response = await fetch(`${API_BASE}/api/content/posts?limit=${limit}&offset=${offset}`, {
+    const response = await fetch(`${API_URL}/content/posts?limit=${limit}&offset=${offset}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -321,7 +323,7 @@ export async function getTodayPostCount(): Promise<{
       return { success: false, error: 'Not authenticated' };
     }
 
-    const response = await fetch(`${API_BASE}/api/content/posts/today-count`, {
+    const response = await fetch(`${API_URL}/content/posts/today-count`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -359,7 +361,7 @@ export async function getAvatarHistory(limit: number = 10): Promise<{
       return { success: false, error: 'Not authenticated' };
     }
 
-    const response = await fetch(`${API_BASE}/api/avatar/history?limit=${limit}`, {
+    const response = await fetch(`${API_URL}/avatar/history?limit=${limit}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,

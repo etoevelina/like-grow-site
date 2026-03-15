@@ -2,7 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 
-const API_URL = 'https://goldfish-app-ohjd4.ondigitalocean.app/api/auth';
+import { API_URL } from '@/lib/api-config';
+import { clearAvatarData } from '@/lib/avatar-api';
+
+const AUTH_URL = `${API_URL}/auth`;
 
 // Decode JWT payload (without verification - just for reading claims)
 function decodeJwtPayload(token: string): Record<string, unknown> | null {
@@ -67,7 +70,7 @@ export function useAuth() {
     }
 
     try {
-      const res = await fetch(`${API_URL}/me`, {
+      const res = await fetch(`${AUTH_URL}/me`, {
         headers: { 'Authorization': `Bearer ${token}` },
       });
 
@@ -101,7 +104,7 @@ export function useAuth() {
     setState(prev => ({ ...prev, error: null }));
 
     try {
-      const res = await fetch(`${API_URL}/register`, {
+      const res = await fetch(`${AUTH_URL}/register`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -126,7 +129,7 @@ export function useAuth() {
 
   const verifyEmail = async (email: string, code: string): Promise<AuthResult> => {
     try {
-      const res = await fetch(`${API_URL}/verify-email`, {
+      const res = await fetch(`${AUTH_URL}/verify-email`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, code }),
@@ -149,7 +152,7 @@ export function useAuth() {
 
   const resendVerification = async (email: string): Promise<AuthResult> => {
     try {
-      const res = await fetch(`${API_URL}/resend-verification`, {
+      const res = await fetch(`${AUTH_URL}/resend-verification`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
@@ -170,7 +173,7 @@ export function useAuth() {
     setState(prev => ({ ...prev, error: null }));
 
     try {
-      const res = await fetch(`${API_URL}/login`, {
+      const res = await fetch(`${AUTH_URL}/login`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -195,12 +198,13 @@ export function useAuth() {
   };
 
   const loginWithGoogle = () => {
-    window.location.href = `${API_URL}/google`;
+    window.location.href = `${AUTH_URL}/google`;
   };
 
   const logout = () => {
     localStorage.removeItem('access_token');
     localStorage.removeItem('refresh_token');
+    clearAvatarData();
     setState({ user: null, loading: false, error: null });
   };
 
@@ -209,7 +213,7 @@ export function useAuth() {
     if (!refreshTokenValue) return false;
 
     try {
-      const res = await fetch(`${API_URL}/refresh`, {
+      const res = await fetch(`${AUTH_URL}/refresh`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${refreshTokenValue}`,

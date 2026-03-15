@@ -10,7 +10,7 @@ import {
   Link2, Send, Loader2, CheckCircle2,
   Heart, Frown, AlertTriangle, 
   Home, ListPlus, ShoppingBag, Clock, X,
-  ExternalLink, Settings
+  ExternalLink, Settings, ClipboardList, Lock
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { 
@@ -24,6 +24,7 @@ import {
   ContentSubmitResponse,
 } from '@/lib/avatar-api';
 import { getShopItems, purchaseItem, type ShopItem } from '@/lib/shop-api';
+import { getTasks, completeTask, type Task } from '@/lib/tasks-api';
 import { 
   Sheet,
   SheetContent,
@@ -31,9 +32,6 @@ import {
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
-import { io, Socket } from 'socket.io-client';
-
-const API_BASE = 'https://goldfish-app-ohjd4.ondigitalocean.app';
 
 // State icons
 const StateIcon = ({ state }: { state: string }) => {
@@ -132,16 +130,50 @@ export default function DashboardPage() {
   const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);
   const [savedPostsTotal, setSavedPostsTotal] = useState(0);
   
-  // Socket for real-time avatar updates
+  // Socket: single connection, avatar updates + content submit results
   const handleAvatarUpdate = useCallback((updatedAvatar: AvatarType) => {
     setAvatar(updatedAvatar);
   }, []);
 
-  const { isConnected, socket } = useSocket(handleAvatarUpdate);
+  const handleContentResult = useCallback((data: ContentSubmitResponse) => {
+    if (pendingPostUrlsRef.current.length > 0) pendingPostUrlsRef.current = pendingPostUrlsRef.current.slice(1);
+    // Update the first 'processing' row (FIFO) so we don't rely on URL match — avoids "Processing" stuck when URL differs
+    const updateFirstProcessing = (status: 'success' | 'error', xp?: number, coins?: number) => {
+      setHistory((prev) => {
+        const idx = prev.findIndex((h) => h.status === 'processing');
+        if (idx === -1) return prev;
+        const next = [...prev];
+        next[idx] = { ...next[idx], status, ...(status === 'success' && xp != null && coins != null ? { xp, coins } : {}) };
+        return next;
+      });
+    };
+    if (data.ok && data.avatar) {
+      setAvatar(data.avatar);
+      updateFirstProcessing('success', data.xp, data.coins);
+      setTodayPostCount((prev) => prev + 1);
+      getSavedPosts(20, 0).then((result) => {
+        if (result.success && result.data) {
+          setSavedPosts(result.data.posts);
+          setSavedPostsTotal(result.data.total);
+        }
+      });
+    } else {
+      updateFirstProcessing('error');
+      if (data.error && (data.error.toLowerCase().includes('limit') || data.error.toLowerCase().includes('daily'))) {
+        setTodayPostCount(MAX_DAILY_POSTS);
+        setShowLimitSheet(true);
+      }
+    }
+  }, []);
+
+  const { isConnected, submitPost } = useSocket(handleAvatarUpdate, handleContentResult);
   
   // UI state
-  const [activeTab, setActiveTab] = useState<'home' | 'feed'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'feed' | 'tasks'>('home');
   const [showShop, setShowShop] = useState(false);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [tasksLoading, setTasksLoading] = useState(false);
+  const [completingTaskId, setCompletingTaskId] = useState<number | null>(null);
   
   // Shop state
   const [shopItems, setShopItems] = useState<ShopItem[]>([]);
@@ -149,7 +181,7 @@ export default function DashboardPage() {
   const [purchasingId, setPurchasingId] = useState<number | null>(null);
   const [purchaseToast, setPurchaseToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
-  const [generatingMessage, setGeneratingMessage] = useState('Generating...');
+  const [generatingMessage, setGeneratingMessage] = useState('Creating your avatar...');
   const [purchaseSuccess, setPurchaseSuccess] = useState<{ itemName: string; show: boolean }>({ itemName: '', show: false });
   const pendingPostUrlsRef = useRef<string[]>([]); // Track pending posts in order (using ref to avoid stale closure)
   
@@ -189,21 +221,25 @@ export default function DashboardPage() {
     }
   }, []);
 
-  // Load avatar data
+  // Load avatar and profile; refetch on tab focus so XP/coins stay in sync (silent, no loader)
   useEffect(() => {
-    async function loadAvatar() {
-      setAvatarLoading(true);
+    if (!user) return;
+
+    async function loadAvatar(showLoading = true) {
+      if (showLoading) setAvatarLoading(true);
       const result = await getAvatar();
       if (result.success && result.data) {
         setAvatar(result.data.avatar);
         setProfile(result.data.profile);
       }
-      setAvatarLoading(false);
+      if (showLoading) setAvatarLoading(false);
     }
-    
-    if (user) {
-      loadAvatar();
-    }
+
+    loadAvatar(true);
+
+    const onFocus = () => loadAvatar(false);
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
   }, [user]);
 
   // Poll for avatar readiness while creating
@@ -243,6 +279,18 @@ export default function DashboardPage() {
     loadShopItems();
   }, [showShop]);
 
+  // Load tasks when Tasks tab is open
+  useEffect(() => {
+    if (activeTab !== 'tasks' || !user) return;
+    let cancelled = false;
+    setTasksLoading(true);
+    getTasks().then((result) => {
+      if (!cancelled && result.success && result.tasks) setTasks(result.tasks);
+      if (!cancelled) setTasksLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [activeTab, user]);
+
   const showToast = (message: string, type: 'success' | 'error') => {
     setPurchaseToast({ message, type });
     setTimeout(() => setPurchaseToast(null), 3000);
@@ -280,20 +328,32 @@ export default function DashboardPage() {
       setAvatar(prev => prev ? { ...prev, coins: prev.coins + item.cost } : prev);
     }
     setIsGenerating(false);
-    setGeneratingMessage('Generating...'); // Reset to default
+    setGeneratingMessage('Creating your avatar...'); // Reset to default
   };
 
-  // Load saved posts
+  // Load saved posts on mount and when opening Feed tab (so we can clear stale "Processing" if socket event was lost)
   useEffect(() => {
+    if (!user) return;
     async function loadPosts() {
       const result = await getSavedPosts(20, 0);
       if (result.success && result.data) {
         setSavedPosts(result.data.posts);
         setSavedPostsTotal(result.data.total);
+        // If there are still "processing" rows but server has posts, first one likely completed (socket event missed)
+        if (result.data.posts.length > 0) {
+          setHistory((prev) => {
+            const idx = prev.findIndex((h) => h.status === 'processing');
+            if (idx === -1) return prev;
+            const next = [...prev];
+            const first = result.data!.posts[0];
+            next[idx] = { ...next[idx], status: 'success' as const, xp: first.xp ?? 0, coins: first.coins ?? 0 };
+            return next;
+          });
+        }
       }
     }
-    if (user) loadPosts();
-  }, [user]);
+    loadPosts();
+  }, [user, activeTab]);
 
   // Load today's post count from server
   useEffect(() => {
@@ -306,109 +366,36 @@ export default function DashboardPage() {
     if (user) loadTodayCount();
   }, [user]);
 
-  // Socket connection
-  useEffect(() => {
-    if (!user) return;
-    
-    const token = localStorage.getItem('access_token');
-    if (!token) return;
-    
-    const socket = io(API_BASE, {
-      auth: { token },
-      transports: ['websocket', 'polling'],
-    });
-    
-    socket.on('connect', () => {
-      setIsConnected(true);
-    });
-    
-    socket.on('disconnect', () => {
-      setIsConnected(false);
-    });
-    
-    // Progress updates
-    socket.on('content_submit_progress', (data: { step: string; message: string }) => {
-      console.log('[v0] Progress:', data.step, data.message);
-      // Could update UI with progress message here
-    });
-
-    // Result handler
-    socket.on('content_submit_result', (data: ContentSubmitResponse) => {
-      console.log('[v0] content_submit_result received:', data);
-      
-      // Get the URL that was submitted (first in pending queue) - using ref to avoid stale closure
-      const submittedUrl = pendingPostUrlsRef.current[0];
-      console.log('[v0] Current pending URLs:', pendingPostUrlsRef.current, 'processing:', submittedUrl);
-      
-      if (submittedUrl) {
-        // Remove from pending queue
-        pendingPostUrlsRef.current = pendingPostUrlsRef.current.slice(1);
-      }
-      
-      if (data.ok && data.avatar) {
-        console.log('[v0] Post success, updating avatar and history for URL:', submittedUrl);
-        setAvatar(data.avatar);
-        
-        // Update history - find the post by URL
-        setHistory(prev => prev.map(h => 
-          h.url === submittedUrl && h.status === 'processing'
-            ? { ...h, status: 'success' as const, xp: data.xp, coins: data.coins }
-            : h
-        ));
-        
-        // Update post count
-        setTodayPostCount(prev => prev + 1);
-      } else {
-        console.log('[v0] Post error or invalid response:', data);
-        // Handle error - mark post as error
-        setHistory(prev => prev.map(h =>
-          h.url === submittedUrl && h.status === 'processing'
-            ? { ...h, status: 'error' }
-            : h
-        ));
-      }
-    });
-    
-    return () => {
-      socket.off('connect');
-      socket.off('disconnect');
-      socket.off('content_submit_progress');
-      socket.off('content_submit_result');
-      socket.off('avatar_updated');
-      socket.disconnect();
-    };
-  }, [user]);
-
-  // Submit post
+  // Submit post — check limit first: on 6th+ attempt show sheet; otherwise submit if URL present
   const handleSubmitPost = useCallback(async () => {
-    if (!postUrl.trim()) return;
-
-    // Check today's count from server before submitting
-    const countResult = await getTodayPostCount();
-    console.log('[v0] getTodayPostCount result:', countResult);
-    const currentCount = countResult.success && countResult.count !== undefined ? countResult.count : todayPostCount;
-    console.log('[v0] currentCount:', currentCount, 'MAX_DAILY_POSTS:', MAX_DAILY_POSTS);
-    setTodayPostCount(currentCount);
+    let currentCount: number = todayPostCount;
+    try {
+      const countResult = await getTodayPostCount();
+      const serverCount = countResult.success && countResult.count !== undefined ? countResult.count : null;
+      if (serverCount !== null) {
+        setTodayPostCount(serverCount);
+        currentCount = serverCount;
+      }
+    } catch {
+      // use state as fallback so sheet still shows when at limit
+    }
 
     if (currentCount >= MAX_DAILY_POSTS) {
-      console.log('[v0] Limit reached, showing sheet');
       setShowLimitSheet(true);
       return;
     }
+
+    if (!postUrl.trim()) return;
 
     const url = postUrl.trim();
     setPostUrl('');
     
     setHistory(prev => [{ url, status: 'processing' }, ...prev]);
-    pendingPostUrlsRef.current = [...pendingPostUrlsRef.current, url]; // Add to pending queue using ref
-    console.log('[v0] Added to pending queue:', url, 'queue length:', pendingPostUrlsRef.current.length);
-    
-    // Try socket first (from useSocket hook)
-    if (socket?.connected) {
-      console.log('[v0] Sending post via socket:', url);
-      socket.emit('submit_post', { url });
+    pendingPostUrlsRef.current = [...pendingPostUrlsRef.current, url];
+
+    if (isConnected) {
+      submitPost(url).catch(() => {});
     } else {
-      // Fallback to HTTP
       const result = await submitContent(url);
       if (result.success && result.data?.avatar) {
         setAvatar(result.data.avatar);
@@ -418,18 +405,43 @@ export default function DashboardPage() {
             : h
         ));
         setTodayPostCount(prev => prev + 1);
+        getSavedPosts(20, 0).then((res) => {
+          if (res.success && res.data) {
+            setSavedPosts(res.data.posts);
+            setSavedPostsTotal(res.data.total);
+          }
+        });
       } else {
         setHistory(prev => prev.map(h => 
           h.url === url ? { ...h, status: 'error' } : h
         ));
+        const err = (result.error || '').toLowerCase();
+        if (err.includes('limit') || err.includes('daily')) {
+          setTodayPostCount(MAX_DAILY_POSTS);
+          setShowLimitSheet(true);
+        }
       }
     }
-  }, [postUrl, todayPostCount]);
+  }, [postUrl, todayPostCount, isConnected, submitPost]);
 
   // Reveal avatar for new users
   const handleReveal = () => {
     setShutterOpen(true);
     localStorage.setItem('onboarding_complete', 'true');
+  };
+
+  // Complete a task (XP + coins)
+  const handleCompleteTask = async (taskId: number) => {
+    setCompletingTaskId(taskId);
+    const result = await completeTask(taskId);
+    setCompletingTaskId(null);
+    if (result.success && result.avatar) {
+      setAvatar(result.avatar as AvatarType);
+      const list = await getTasks();
+      if (list.success && list.tasks) setTasks(list.tasks);
+    } else if (result.error) {
+      console.error(result.error);
+    }
   };
 
   // Redirect if not authenticated
@@ -563,13 +575,10 @@ export default function DashboardPage() {
           )}
         </motion.div>
 
-        {/* Personality */}
+        {/* Personality type only — description hidden */}
         {profile && (
           <div className="text-center mb-6">
             <h2 className="text-lg font-semibold text-foreground">{profile.personality_type}</h2>
-            {profile.personality_description && (
-              <p className="text-sm text-muted-foreground mt-1">{profile.personality_description}</p>
-            )}
           </div>
         )}
 
@@ -643,49 +652,69 @@ export default function DashboardPage() {
           </motion.div>
         )}
 
-        {/* Shop Prompt for new users */}
+        {/* While avatar is generating: send to shop and tasks */}
         {isAvatarCreating && !avatarReady && (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="glass-card rounded-2xl p-4 mb-6 flex items-center gap-4"
+            className="mb-6 space-y-3"
           >
-            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
-              <ShoppingBag className="w-6 h-6 text-primary" />
+            <p className="text-sm font-medium text-foreground">While you wait...</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <button
+                type="button"
+                onClick={() => setShowShop(true)}
+                className="glass-card rounded-2xl p-4 flex items-center gap-3 text-left hover:bg-muted/50 transition-colors"
+              >
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center shrink-0">
+                  <ShoppingBag className="w-5 h-5 text-primary" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-foreground text-sm">Shop</p>
+                  <p className="text-xs text-muted-foreground">Accessories for your avatar</p>
+                </div>
+              </button>
+              <button
+                type="button"
+                onClick={() => setActiveTab('tasks')}
+                className="glass-card rounded-2xl p-4 flex items-center gap-3 text-left hover:bg-muted/50 transition-colors"
+              >
+                <div className="w-10 h-10 rounded-xl bg-green-500/10 flex items-center justify-center shrink-0">
+                  <ClipboardList className="w-5 h-5 text-green-500" />
+                </div>
+                <div className="min-w-0">
+                  <p className="font-medium text-foreground text-sm">Tasks</p>
+                  <p className="text-xs text-muted-foreground">Earn XP and coins</p>
+                </div>
+              </button>
             </div>
-            <div className="flex-1">
-              <p className="font-medium text-foreground">While you wait...</p>
-              <p className="text-sm text-muted-foreground">Check out the shop for accessories!</p>
-            </div>
-            <Button variant="outline" size="sm" onClick={() => setShowShop(true)}>
-              Browse
-            </Button>
           </motion.div>
         )}
 
-        {/* Feed Widget */}
+        {/* Feed Widget — no counter, no "limit reached" until user tries to send; then show sheet */}
         <motion.div className="glass-card rounded-2xl p-4 mb-6">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <Link2 className="w-4 h-4 text-primary" />
-              <span className="text-sm font-medium text-foreground">Feed your avatar</span>
-            </div>
-            <span className="text-xs text-muted-foreground">{todayPostCount > 0 ? `${todayPostCount}/${MAX_DAILY_POSTS} today` : ''}</span>
+          <div className="flex items-center gap-2 mb-3">
+            <Link2 className="w-4 h-4 text-primary" />
+            <span className="text-sm font-medium text-foreground">Feed your avatar</span>
           </div>
-          
           <div className="flex gap-2">
             <input
               type="text"
               value={postUrl}
               onChange={(e) => setPostUrl(e.target.value)}
               placeholder="Paste TikTok or Instagram link..."
-              disabled={(!avatarReady && isNewUser) || avatarLoading || todayPostCount >= MAX_DAILY_POSTS}
+              disabled={(!avatarReady && isNewUser) || avatarLoading}
               className="flex-1 px-3 py-2 bg-input border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
               onKeyDown={(e) => e.key === 'Enter' && handleSubmitPost()}
             />
             <Button
-              onClick={handleSubmitPost}
-              disabled={!postUrl.trim() || !avatarReady || avatarLoading || todayPostCount >= MAX_DAILY_POSTS}
+              type="button"
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                handleSubmitPost();
+              }}
+              disabled={avatarLoading}
               size="sm"
               className="rounded-xl bg-primary text-primary-foreground px-4"
             >
@@ -746,6 +775,88 @@ export default function DashboardPage() {
         )}
       </div>
 
+      {/* Tasks Tab */}
+      <div className={`max-w-md mx-auto px-4 py-6 pb-24 ${activeTab !== 'tasks' ? 'hidden' : ''}`}>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-foreground mb-1">Tasks</h1>
+          <p className="text-sm text-muted-foreground">Complete tasks to earn XP and coins</p>
+        </div>
+        {tasksLoading ? (
+          <div className="flex justify-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : tasks.length === 0 ? (
+          <div className="text-center py-12">
+            <ClipboardList className="w-12 h-12 text-muted-foreground/50 mx-auto mb-3" />
+            <p className="text-muted-foreground">No tasks yet</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {tasks.map((task) => (
+              <motion.div
+                key={task.id}
+                initial={{ opacity: 0, y: 8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className={`glass-card rounded-2xl p-4 border ${
+                  task.completed ? 'border-green-500/30 bg-green-500/5' : 'border-border'
+                }`}
+              >
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="font-semibold text-foreground">{task.name}</h3>
+                      {task.completed && (
+                        <span className="flex items-center gap-1 text-xs text-green-500">
+                          <CheckCircle2 className="w-3.5 h-3.5" /> Done
+                        </span>
+                      )}
+                      {!task.can_complete && !task.completed && (
+                        <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                          <Lock className="w-3.5 h-3.5" /> Complete first task
+                        </span>
+                      )}
+                    </div>
+                    {task.description && (
+                      <p className="text-sm text-muted-foreground mt-1">{task.description}</p>
+                    )}
+                    {task.key === 'sync_likepost' && !task.completed && (
+                      <a
+                        href="https://likepost.onelink.me/0Rxw/yu98euh9"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex items-center gap-1 text-xs text-primary mt-2 hover:underline"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5" /> Open LikePost App
+                      </a>
+                    )}
+                    <div className="flex items-center gap-3 mt-2">
+                      <span className="text-xs text-green-500">+{task.xp_reward} XP</span>
+                      <span className="text-xs text-yellow-500">+{task.coins_reward} coins</span>
+                    </div>
+                  </div>
+                  {task.can_complete && (
+                    <Button
+                      size="sm"
+                      onClick={() => handleCompleteTask(task.id)}
+                      disabled={completingTaskId === task.id}
+                      className="shrink-0 rounded-xl bg-primary text-primary-foreground"
+                    >
+                      {completingTaskId === task.id ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : task.key === 'sync_likepost' ? (
+                        'I\'ve synced'
+                      ) : (
+                        'Complete'
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </motion.div>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* Bottom Navigation */}
       <nav className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-lg border-t border-border">
         <div className="max-w-md mx-auto flex">
@@ -755,6 +866,15 @@ export default function DashboardPage() {
           >
             <Home className="w-5 h-5" />
             <span className="text-xs">Home</span>
+          </button>
+          <button
+            onClick={() => setActiveTab('tasks')}
+            className={`flex-1 py-4 flex flex-col items-center gap-1 transition-colors ${
+              activeTab === 'tasks' ? 'text-primary' : 'text-muted-foreground'
+            }`}
+          >
+            <ClipboardList className="w-5 h-5" />
+            <span className="text-xs">Tasks</span>
           </button>
           <button
             onClick={() => setActiveTab('feed')}
@@ -875,20 +995,24 @@ export default function DashboardPage() {
         </SheetContent>
       </Sheet>
 
-      {/* Limit reached sheet */}
+      {/* Daily limit reached sheet — 6th post attempt or tap when at limit */}
       <Sheet open={showLimitSheet} onOpenChange={setShowLimitSheet}>
         <SheetContent side="bottom" className="rounded-t-3xl">
           <SheetHeader className="text-center pb-4">
-            <SheetTitle className="text-xl">Daily limit reached!</SheetTitle>
+            <SheetTitle className="text-xl">Want to share more?</SheetTitle>
           </SheetHeader>
           <div className="flex flex-col items-center gap-6 pb-8">
             <img
-              src="/images/likepost-logo.jpeg"
+              src="/images/likepost-logo.gif"
               alt="LikePost"
-              className="w-20 h-20 rounded-2xl object-cover"
+              className="w-28 h-28 rounded-2xl object-contain flex-shrink-0"
+              onError={(e) => {
+                const t = e.currentTarget;
+                if (t.src && !t.src.endsWith('.jpeg')) t.src = '/images/likepost-logo.jpeg';
+              }}
             />
-            <p className="text-center text-muted-foreground max-w-xs">
-              Sync with LikePost to organize your content and keep growing your avatar without limits
+            <p className="text-center text-muted-foreground max-w-sm">
+              Sync with LikePost to organize your content from socials. We’ll count your experience and coins — and your avatar will keep growing.
             </p>
             <a
               href="https://likepost.onelink.me/0Rxw/yu98euh9"

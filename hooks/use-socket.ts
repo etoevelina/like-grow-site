@@ -4,8 +4,9 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { io, Socket } from 'socket.io-client';
 import { Avatar } from '@/lib/avatar-api';
 
-const SOCKET_URL = 'https://goldfish-app-ohjd4.ondigitalocean.app';
+import { API_BASE } from '@/lib/api-config';
 
+/** Backend expects token in query string (?token=JWT). */
 export interface ContentSubmitResult {
   ok: boolean;
   xp?: number;
@@ -62,7 +63,7 @@ export function useSocket(
       return;
     }
 
-    const socket = io(SOCKET_URL, {
+    const socket = io(API_BASE, {
       query: { token },
       transports: ['websocket', 'polling'],
       reconnection: true,

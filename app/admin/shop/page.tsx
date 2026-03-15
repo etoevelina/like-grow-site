@@ -26,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { API_URL } from '@/lib/api-config';
 
 export default function ShopItemsPage() {
   const [items, setItems] = useState<ShopItem[]>([]);
@@ -76,7 +77,7 @@ export default function ShopItemsPage() {
     setFormData({
       name: item.name,
       description: item.description || '',
-      price: item.price,
+      price: item.cost,
       category: item.category,
       image_url: item.image_url || '',
       is_active: item.is_active,
@@ -86,58 +87,43 @@ export default function ShopItemsPage() {
     setEditingId(item.id);
   };
 
+  const buildFormData = (includeImage = false): FormData => {
+    const fd = new FormData();
+    fd.append('name', formData.name.trim());
+    fd.append('description', formData.description.trim());
+    fd.append('cost', String(formData.price));
+    fd.append('category', formData.category);
+    fd.append('is_active', String(formData.is_active));
+    if (includeImage && imageFile) fd.append('image', imageFile);
+    return fd;
+  };
+
   const handleSave = async () => {
     setSaving(true);
-    
-    // Вариант 1: если выбран файл - отправлять FormData
-    if (imageFile) {
-      const formDataBody = new FormData();
-      formDataBody.append('name', formData.name.trim());
-      formDataBody.append('description', formData.description.trim());
-      formDataBody.append('cost', String(formData.price));
-      formDataBody.append('category', formData.category);
-      formDataBody.append('image', imageFile);
-      formDataBody.append('is_active', String(formData.is_active));
-
-      const token = localStorage.getItem('access_token');
-      const response = await fetch('https://goldfish-app-ohjd4.ondigitalocean.app/api/admin/shop/items', {
-        method: isCreating ? 'POST' : 'PUT',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          // НЕ ставить Content-Type - браузер сам подставит multipart/form-data
-        },
-        body: formDataBody,
-      });
-
-      if (response.ok) {
-        await loadItems();
-        setIsCreating(false);
-        setEditingId(null);
-      }
-    } else {
-      // Вариант 2: если только URL или обновление без файла - отправлять JSON
+    try {
       if (isCreating) {
-        const result = await createShopItem({
-          ...formData,
-          image_url: formData.image_url.trim() || undefined,
-        });
+        const formDataBody = buildFormData(!!imageFile);
+        const result = await createShopItem(formDataBody);
         if (result.success) {
           await loadItems();
           setIsCreating(false);
+          setEditingId(null);
+        } else {
+          console.error(result.error);
         }
       } else if (editingId) {
-        const result = await updateShopItem(editingId, {
-          ...formData,
-          image_url: formData.image_url.trim() || undefined,
-        });
+        const formDataBody = buildFormData(!!imageFile);
+        const result = await updateShopItem(editingId, formDataBody);
         if (result.success) {
           await loadItems();
           setEditingId(null);
+        } else {
+          console.error(result.error);
         }
       }
+    } finally {
+      setSaving(false);
     }
-    
-    setSaving(false);
   };
 
   const handleDelete = async (id: number) => {
@@ -254,7 +240,7 @@ export default function ShopItemsPage() {
                   {item.description || 'No description'}
                 </p>
                 <div className="flex items-center justify-between">
-                  <span className="text-lg font-bold text-primary">{item.price} coins</span>
+                  <span className="text-lg font-bold text-primary">{item.cost} coins</span>
                   <span className={`text-xs px-2 py-1 rounded-full ${
                     item.is_active 
                       ? 'bg-accent/20 text-accent' 

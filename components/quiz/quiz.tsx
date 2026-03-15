@@ -32,14 +32,13 @@ import { PuzzleMatch } from './puzzle-match';
 import { WorldMap } from './world-map';
 import { MoodBoard } from './mood-board';
 import { ThisOrThat } from './this-or-that';
-import { MagicTransition } from './magic-transition';
 import { AuthScreen } from './auth-screen';
 import { AvatarCreation } from '../avatar/avatar-creation';
 import { AvatarWindow } from '../avatar/avatar-window';
 import { Avatar, AvatarProfile } from '@/lib/avatar-api';
 import { useAuth } from '@/hooks/use-auth';
 
-type QuizPhase = 'welcome' | 'categories' | 'humor' | 'music' | 'questions' | 'magic' | 'auth' | 'login' | 'creating' | 'reveal';
+type QuizPhase = 'welcome' | 'categories' | 'humor' | 'music' | 'questions' | 'auth' | 'login' | 'creating' | 'reveal';
 
 export function Quiz() {
   const { user, loading } = useAuth();
@@ -161,8 +160,7 @@ export function Quiz() {
       setQuestionIndex(0);
       setCurrentPhase('questions');
     } else {
-      // No questions, go straight to magic transition
-      setCurrentPhase('magic');
+      setCurrentPhase('auth');
     }
   };
 
@@ -170,13 +168,8 @@ export function Quiz() {
     if (questionIndex < mixedQuestions.length - 1) {
       setQuestionIndex(prev => prev + 1);
     } else {
-      // Last question completed - show magic transition
-      setCurrentPhase('magic');
+      setCurrentPhase('auth');
     }
-  };
-
-  const handleMagicComplete = () => {
-    setCurrentPhase('auth');
   };
 
   // Handlers for different question types
@@ -257,8 +250,8 @@ export function Quiz() {
     window.location.href = '/dashboard';
   };
 
-  const showBackButton = currentPhase !== 'welcome' && currentPhase !== 'magic' && currentPhase !== 'auth' && currentPhase !== 'login' && currentPhase !== 'creating' && currentPhase !== 'reveal';
-  const showProgress = currentPhase !== 'welcome' && currentPhase !== 'magic' && currentPhase !== 'auth' && currentPhase !== 'login' && currentPhase !== 'creating' && currentPhase !== 'reveal';
+  const showBackButton = currentPhase !== 'welcome' && currentPhase !== 'auth' && currentPhase !== 'login' && currentPhase !== 'creating' && currentPhase !== 'reveal';
+  const showProgress = currentPhase !== 'welcome' && currentPhase !== 'auth' && currentPhase !== 'login' && currentPhase !== 'creating' && currentPhase !== 'reveal';
   const progress = calculateProgress();
 
   const getCategoryLabel = (category: Category) => {
@@ -481,13 +474,6 @@ export function Quiz() {
             >
               {renderCurrentQuestion()}
             </motion.div>
-          )}
-
-          {currentPhase === 'magic' && (
-            <MagicTransition
-              key="magic"
-              onComplete={handleMagicComplete}
-            />
           )}
 
           {currentPhase === 'auth' && (

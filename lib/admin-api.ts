@@ -1,4 +1,4 @@
-const API_BASE = 'https://goldfish-app-ohjd4.ondigitalocean.app/api';
+import { API_URL } from './api-config';
 
 function getAuthHeaders(): HeadersInit {
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
@@ -19,7 +19,7 @@ export interface AdminStats {
 
 export async function getAdminStats(): Promise<{ success: boolean; data?: AdminStats; error?: string }> {
   try {
-    const res = await fetch(`${API_BASE}/admin/stats`, {
+    const res = await fetch(`${API_URL}/admin/stats`, {
       headers: getAuthHeaders(),
     });
     
@@ -67,7 +67,7 @@ export async function checkAdminAccess(): Promise<boolean> {
   
   // Fallback: try API endpoint if exists
   try {
-    const res = await fetch(`${API_BASE}/admin/check`, {
+    const res = await fetch(`${API_URL}/admin/check`, {
       headers: getAuthHeaders(),
     });
     
@@ -92,7 +92,7 @@ export interface Prompt {
 
 export async function getPrompts(): Promise<{ success: boolean; data?: Prompt[]; error?: string }> {
   try {
-    const res = await fetch(`${API_BASE}/admin/prompts`, {
+    const res = await fetch(`${API_URL}/admin/prompts`, {
       headers: getAuthHeaders(),
     });
     
@@ -109,7 +109,7 @@ export async function getPrompts(): Promise<{ success: boolean; data?: Prompt[];
 
 export async function getPrompt(key: string): Promise<{ success: boolean; data?: Prompt; error?: string }> {
   try {
-    const res = await fetch(`${API_BASE}/admin/prompts/${key}`, {
+    const res = await fetch(`${API_URL}/admin/prompts/${key}`, {
       headers: getAuthHeaders(),
     });
     
@@ -126,7 +126,7 @@ export async function getPrompt(key: string): Promise<{ success: boolean; data?:
 
 export async function updatePrompt(key: string, content: string, description?: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const res = await fetch(`${API_BASE}/admin/prompts/${key}`, {
+    const res = await fetch(`${API_URL}/admin/prompts/${key}`, {
       method: 'PUT',
       headers: getAuthHeaders(),
       body: JSON.stringify({ content, description }),
@@ -145,7 +145,7 @@ export async function updatePrompt(key: string, content: string, description?: s
 
 export async function createPrompt(key: string, content: string, description?: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const res = await fetch(`${API_BASE}/admin/prompts`, {
+    const res = await fetch(`${API_URL}/admin/prompts`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ key, content, description }),
@@ -169,15 +169,34 @@ export interface ShopItem {
   description?: string;
   cost: number;
   image_url?: string;
+  category?: string;
   is_active: boolean;
   sort_order: number;
   created_at: string;
   updated_at: string;
 }
 
+export async function reorderShopItems(itemIds: number[]): Promise<{ success: boolean; data?: ShopItem[]; error?: string }> {
+  try {
+    const res = await fetch(`${API_URL}/admin/shop/items/reorder`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ order: itemIds }),
+    });
+    if (res.ok) {
+      const data = await res.json();
+      return { success: true, data: data.items };
+    }
+    const err = await res.json();
+    return { success: false, error: err.error || 'Failed to reorder' };
+  } catch {
+    return { success: false, error: 'Network error' };
+  }
+}
+
 export async function getShopItems(): Promise<{ success: boolean; data?: ShopItem[]; error?: string }> {
   try {
-    const res = await fetch(`${API_BASE}/admin/shop/items`, {
+    const res = await fetch(`${API_URL}/admin/shop/items`, {
       headers: getAuthHeaders(),
     });
     
@@ -194,7 +213,7 @@ export async function getShopItems(): Promise<{ success: boolean; data?: ShopIte
 
 export async function getShopItem(id: number): Promise<{ success: boolean; data?: ShopItem; error?: string }> {
   try {
-    const res = await fetch(`${API_BASE}/admin/shop/items/${id}`, {
+    const res = await fetch(`${API_URL}/admin/shop/items/${id}`, {
       headers: getAuthHeaders(),
     });
     
@@ -212,7 +231,7 @@ export async function getShopItem(id: number): Promise<{ success: boolean; data?
 export async function createShopItem(formData: FormData): Promise<{ success: boolean; data?: ShopItem; error?: string }> {
   try {
     const token = localStorage.getItem('access_token');
-    const res = await fetch(`${API_BASE}/admin/shop/items`, {
+    const res = await fetch(`${API_URL}/admin/shop/items`, {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -235,7 +254,7 @@ export async function createShopItem(formData: FormData): Promise<{ success: boo
 export async function updateShopItem(id: number, formData: FormData): Promise<{ success: boolean; data?: ShopItem; error?: string }> {
   try {
     const token = localStorage.getItem('access_token');
-    const res = await fetch(`${API_BASE}/admin/shop/items/${id}`, {
+    const res = await fetch(`${API_URL}/admin/shop/items/${id}`, {
       method: 'PUT',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -257,7 +276,7 @@ export async function updateShopItem(id: number, formData: FormData): Promise<{ 
 
 export async function deleteShopItem(id: number): Promise<{ success: boolean; error?: string }> {
   try {
-    const res = await fetch(`${API_BASE}/admin/shop/items/${id}`, {
+    const res = await fetch(`${API_URL}/admin/shop/items/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     });

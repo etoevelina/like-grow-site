@@ -1,4 +1,4 @@
-const API_BASE = 'https://goldfish-app-ohjd4.ondigitalocean.app/api';
+import { API_URL } from './api-config';
 
 function getAuthHeaders(): HeadersInit {
   const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
@@ -16,6 +16,7 @@ export interface ShopItem {
   image_url?: string;
   category?: string;
   is_active: boolean;
+  sort_order?: number;
 }
 
 export interface PurchaseResult {
@@ -42,7 +43,7 @@ export interface PurchaseResult {
 // Get all active shop items (public endpoint)
 export async function getShopItems(): Promise<{ success: boolean; items?: ShopItem[]; error?: string }> {
   try {
-    const res = await fetch(`${API_BASE}/shop/items`, {
+    const res = await fetch(`${API_URL}/shop/items`, {
       headers: getAuthHeaders(),
     });
     
@@ -60,7 +61,7 @@ export async function getShopItems(): Promise<{ success: boolean; items?: ShopIt
 // Purchase an item from shop
 export async function purchaseItem(itemId: number): Promise<PurchaseResult> {
   try {
-    const res = await fetch(`${API_BASE}/avatar/purchase`, {
+    const res = await fetch(`${API_URL}/avatar/purchase`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ accessory_id: itemId }),
@@ -86,20 +87,4 @@ export async function purchaseItem(itemId: number): Promise<PurchaseResult> {
   }
 }
 
-// Get user's purchased items (inventory)
-export async function getInventory(): Promise<{ success: boolean; items?: ShopItem[]; error?: string }> {
-  try {
-    const res = await fetch(`${API_BASE}/shop/inventory`, {
-      headers: getAuthHeaders(),
-    });
-    
-    if (res.ok) {
-      const data = await res.json();
-      return { success: true, items: data.items || data };
-    }
-    
-    return { success: false, error: 'Failed to fetch inventory' };
-  } catch {
-    return { success: false, error: 'Network error' };
-  }
-}
+// Note: Backend has no /shop/inventory endpoint. Purchased items are on avatar.accessories (shop item ids).

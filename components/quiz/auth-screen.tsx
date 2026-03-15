@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Mail, Lock, User, Eye, EyeOff, ArrowRight, Check, AlertCircle, Loader2 } from 'lucide-react';
+import { Mail, Lock, User, Eye, EyeOff, ArrowRight, ArrowLeft, Check, AlertCircle, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useAuth, validatePassword, validateEmail } from '@/hooks/use-auth';
 
@@ -199,7 +199,9 @@ export function AuthScreen({ onComplete, initialMode = 'register' }: AuthScreenP
                 {isLogin ? 'Welcome Back' : 'Create Account'}
               </h1>
               <p className="text-muted-foreground text-sm">
-                {isLogin ? 'Sign in to continue your journey' : 'Save your avatar and start growing'}
+                {isLogin
+                  ? 'Sign in to continue your journey'
+                  : "We're already creating your internet twin — register now and check it out"}
               </p>
             </div>
 
@@ -418,6 +420,19 @@ export function AuthScreen({ onComplete, initialMode = 'register' }: AuthScreenP
                 {resendCooldown > 0 ? `Resend in ${resendCooldown}s` : 'Resend'}
               </button>
             </p>
+
+            <button
+              type="button"
+              onClick={() => {
+                setStep('register');
+                setOtpCode(['', '', '', '', '', '']);
+                setError(null);
+              }}
+              className="mt-4 inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Wrong email? Go back to fix it
+            </button>
           </motion.div>
         )}
 

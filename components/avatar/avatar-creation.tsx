@@ -43,14 +43,14 @@ const ONBOARDING_SLIDES = [
 
 export function AvatarCreation({ quizState, onComplete }: AvatarCreationProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
-  const [isCreating, setIsCreating] = useState(false);
+  const [creationStatus, setCreationStatus] = useState<'creating' | 'waiting' | 'ready'>('creating');
   const [hasStartedCreation, setHasStartedCreation] = useState(false);
 
   // Start avatar creation when component mounts
   const createAvatarFromQuiz = useCallback(async () => {
     if (hasStartedCreation) return;
     setHasStartedCreation(true);
-    setIsCreating(true);
+    setCreationStatus('creating');
     
     try {
       const answers: QuizAnswer[] = formatQuizAnswers(quizState);
@@ -61,12 +61,21 @@ export function AvatarCreation({ quizState, onComplete }: AvatarCreationProps) {
         saveAvatarData(result.data.avatar, result.data.profile);
         // Mark as creating (dashboard will handle the reveal)
         localStorage.setItem('avatar_creating', 'true');
+        
+        // Check if avatar has video/image already
+        if (result.data.avatar.current_video_url || result.data.avatar.current_image_url) {
+          setCreationStatus('ready');
+        } else {
+          // API call done, but video still generating
+          setCreationStatus('waiting');
+        }
+      } else {
+        setCreationStatus('waiting');
       }
     } catch {
       // Continue anyway - dashboard will retry
+      setCreationStatus('waiting');
     }
-    
-    setIsCreating(false);
   }, [quizState, hasStartedCreation]);
 
   useEffect(() => {
@@ -200,12 +209,19 @@ export function AvatarCreation({ quizState, onComplete }: AvatarCreationProps) {
           className="mb-4 text-center"
         >
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-muted">
-            {isCreating ? (
+            {creationStatus === 'creating' && (
               <>
                 <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />
-                <span className="text-xs text-muted-foreground">Preparing your avatar...</span>
+                <span className="text-xs text-muted-foreground">Creating your avatar...</span>
               </>
-            ) : (
+            )}
+            {creationStatus === 'waiting' && (
+              <>
+                <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
+                <span className="text-xs text-muted-foreground">Your avatar is being delivered by stork...</span>
+              </>
+            )}
+            {creationStatus === 'ready' && (
               <>
                 <div className="w-3 h-3 rounded-full bg-accent" />
                 <span className="text-xs text-muted-foreground">Avatar ready to meet you!</span>

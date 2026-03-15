@@ -405,7 +405,7 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                           <Sparkles className="w-16 h-16 text-primary/50 mb-4" />
                         </motion.div>
                         <p className="text-xs text-muted-foreground text-center">
-                          Feed content to see your avatar
+                          {isNewUser ? 'Your avatar is being delivered by stork...' : 'Feed content to see your avatar'}
                         </p>
                       </div>
                     )}

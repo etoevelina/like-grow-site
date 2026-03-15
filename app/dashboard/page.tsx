@@ -1,5 +1,5 @@
 'use client';
-// Dashboard v4
+// Dashboard v5 - fixed JSX
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';

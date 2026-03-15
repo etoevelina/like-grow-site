@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { useAuth } from '@/hooks/use-auth';
-import { LayoutDashboard, FileText, ShoppingBag, ArrowLeft, Menu, X } from 'lucide-react';
+import { LayoutDashboard, FileText, ShoppingBag, ClipboardList, ArrowLeft, Menu, X } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 
@@ -12,6 +12,7 @@ const navItems = [
   { href: '/admin', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/prompts', label: 'Prompts', icon: FileText },
   { href: '/admin/shop', label: 'Shop Items', icon: ShoppingBag },
+  { href: '/admin/tasks', label: 'Tasks', icon: ClipboardList },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

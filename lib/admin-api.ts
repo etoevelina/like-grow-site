@@ -15,6 +15,126 @@ export interface AdminStats {
   shop_items_count: number;
   prompts_count: number;
   saved_posts_count: number;
+  tasks_count?: number;
+}
+
+// Admin Tasks (quests)
+export interface AdminTask {
+  id: number;
+  key: string;
+  name: string;
+  description: string | null;
+  xp_reward: number;
+  coins_reward: number;
+  sort_order: number;
+  is_first_blocking: boolean;
+  is_active: boolean;
+  created_at: string | null;
+  updated_at: string | null;
+}
+
+export async function getAdminTasks(): Promise<{ success: boolean; data?: AdminTask[]; error?: string }> {
+  try {
+    const res = await fetch(`${API_URL}/admin/tasks`, { headers: getAuthHeaders() });
+    if (!res.ok) return { success: false, error: 'Failed to fetch tasks' };
+    const data = await res.json();
+    return { success: true, data: data.tasks };
+  } catch {
+    return { success: false, error: 'Network error' };
+  }
+}
+
+export async function getAdminTask(id: number): Promise<{ success: boolean; data?: AdminTask; error?: string }> {
+  try {
+    const res = await fetch(`${API_URL}/admin/tasks/${id}`, { headers: getAuthHeaders() });
+    if (!res.ok) {
+      const d = await res.json();
+      return { success: false, error: d.error || 'Task not found' };
+    }
+    const data = await res.json();
+    return { success: true, data };
+  } catch {
+    return { success: false, error: 'Network error' };
+  }
+}
+
+export async function createAdminTask(payload: {
+  key: string;
+  name: string;
+  description?: string | null;
+  xp_reward?: number;
+  coins_reward?: number;
+  sort_order?: number;
+  is_first_blocking?: boolean;
+  is_active?: boolean;
+}): Promise<{ success: boolean; data?: AdminTask; error?: string }> {
+  try {
+    const res = await fetch(`${API_URL}/admin/tasks`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const d = await res.json();
+      return { success: false, error: d.error || 'Failed to create task' };
+    }
+    const data = await res.json();
+    return { success: true, data };
+  } catch {
+    return { success: false, error: 'Network error' };
+  }
+}
+
+export async function updateAdminTask(
+  id: number,
+  payload: Partial<{ key: string; name: string; description: string | null; xp_reward: number; coins_reward: number; sort_order: number; is_first_blocking: boolean; is_active: boolean }>
+): Promise<{ success: boolean; data?: AdminTask; error?: string }> {
+  try {
+    const res = await fetch(`${API_URL}/admin/tasks/${id}`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      const d = await res.json();
+      return { success: false, error: d.error || 'Failed to update task' };
+    }
+    const data = await res.json();
+    return { success: true, data };
+  } catch {
+    return { success: false, error: 'Network error' };
+  }
+}
+
+export async function deleteAdminTask(id: number): Promise<{ success: boolean; error?: string }> {
+  try {
+    const res = await fetch(`${API_URL}/admin/tasks/${id}`, { method: 'DELETE', headers: getAuthHeaders() });
+    if (!res.ok) {
+      const d = await res.json();
+      return { success: false, error: d.error || 'Failed to delete task' };
+    }
+    return { success: true };
+  } catch {
+    return { success: false, error: 'Network error' };
+  }
+}
+
+export async function reorderAdminTasks(taskIds: number[]): Promise<{ success: boolean; data?: AdminTask[]; error?: string }> {
+  try {
+    const res = await fetch(`${API_URL}/admin/tasks/reorder`, {
+      method: 'PUT',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ order: taskIds }),
+    });
+    if (!res.ok) {
+      const d = await res.json();
+      return { success: false, error: d.error || 'Failed to reorder' };
+    }
+    const data = await res.json();
+    return { success: true, data: data.tasks };
+  } catch {
+    return { success: false, error: 'Network error' };
+  }
 }
 
 export async function getAdminStats(): Promise<{ success: boolean; data?: AdminStats; error?: string }> {

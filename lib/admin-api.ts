@@ -38,7 +38,34 @@ export async function getAdminStats(): Promise<{ success: boolean; data?: AdminS
   }
 }
 
+// Decode JWT payload to get role
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
+
 export async function checkAdminAccess(): Promise<boolean> {
+  // First check role from JWT token directly
+  const token = typeof window !== 'undefined' ? localStorage.getItem('access_token') : null;
+  if (!token) return false;
+  
+  const payload = decodeJwtPayload(token);
+  if (payload && payload.role === 'admin') {
+    return true;
+  }
+  
+  // Fallback: try API endpoint if exists
   try {
     const res = await fetch(`${API_BASE}/admin/check`, {
       headers: getAuthHeaders(),

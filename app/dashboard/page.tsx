@@ -148,6 +148,7 @@ export default function DashboardPage() {
   const [purchasingId, setPurchasingId] = useState<number | null>(null);
   const [purchaseToast, setPurchaseToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatingMessage, setGeneratingMessage] = useState('Generating...');
   
   // New user flow
   const [isNewUser, setIsNewUser] = useState(false);
@@ -261,6 +262,7 @@ export default function DashboardPage() {
     showToast(`Purchasing: ${item.name}...`, 'success');
     setAvatar(prev => prev ? { ...prev, coins: prev.coins - item.cost } : prev);
     setPurchasingId(null); // Remove button spinner immediately
+    setGeneratingMessage('Applying purchase...');
     setIsGenerating(true); // Show generating overlay on avatar
     
     // Now wait for server response in background
@@ -278,6 +280,7 @@ export default function DashboardPage() {
       setAvatar(prev => prev ? { ...prev, coins: prev.coins + item.cost } : prev);
     }
     setIsGenerating(false);
+    setGeneratingMessage('Generating...'); // Reset to default
   };
 
   // Load saved posts
@@ -448,7 +451,7 @@ export default function DashboardPage() {
                     playsInline
                     className="w-72 h-72 object-contain"
                   />
-                  <p className="text-white text-xl mt-8 font-medium">Generating...</p>
+                  <p className="text-white text-xl mt-8 font-medium">{generatingMessage}</p>
                 </div>
               )}
               
@@ -502,7 +505,7 @@ export default function DashboardPage() {
                 playsInline
                 className="w-72 h-72 object-contain"
               />
-              <p className="text-xl text-white mt-8 font-medium">Generating...</p>
+              <p className="text-xl text-white mt-8 font-medium">{generatingMessage}</p>
             </div>
           )}
         </motion.div>

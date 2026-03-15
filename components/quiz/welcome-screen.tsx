@@ -60,29 +60,29 @@ export function WelcomeScreen({ onStart, onLogin }: WelcomeScreenProps) {
         Discover your digital self through a quick interactive quiz
       </motion.p>
 
-      {/* Video Preview - Square crop from center */}
+      {/* Video Preview - natural size, what fits fits */}
       <motion.div
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.3, type: 'spring', stiffness: 150 }}
-        className="relative mb-12"
+        className="relative mb-12 cursor-pointer"
         onClick={handleVideoClick}
       >
-        {/* Video container - square aspect ratio with overflow hidden to crop */}
-        <div className="relative w-56 h-56 rounded-3xl overflow-hidden bg-background cursor-pointer">
+        {/* Video container */}
+        <div className="relative w-56 bg-background rounded-3xl overflow-hidden">
           {/* Poster image shown until video loads */}
           {!videoLoaded && (
             <img
               src="/images/intro-poster.png"
               alt=""
-              className="absolute inset-0 w-full h-full object-cover"
+              className="w-full h-auto"
             />
           )}
           
-          {/* Video - positioned to show center square */}
+          {/* Video - natural aspect ratio */}
           <video
             ref={videoRef}
-            className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 min-w-full min-h-full object-cover"
+            className="w-full h-auto"
             poster="/images/intro-poster.png"
             playsInline
             loop

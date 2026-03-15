@@ -158,7 +158,7 @@ export default function DashboardPage() {
   const [isAvatarCreating, setIsAvatarCreating] = useState(false);
   
   // Daily post limit
-  const MAX_DAILY_POSTS = 50;
+  const MAX_DAILY_POSTS = 5;
   const [todayPostCount, setTodayPostCount] = useState(0);
   
   // Check if avatar is ready
@@ -694,7 +694,31 @@ export default function DashboardPage() {
           
           
           {todayPostCount >= MAX_DAILY_POSTS && (
-            <p className="text-xs text-muted-foreground mt-2">Come back tomorrow for more!</p>
+            <div className="mt-4 rounded-2xl overflow-hidden border border-border bg-card">
+              <div className="flex items-center gap-4 p-4">
+                <img
+                  src="/images/likepost-logo.jpeg"
+                  alt="LikePost"
+                  className="w-16 h-16 rounded-2xl object-cover flex-shrink-0"
+                />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-foreground">Sync with LikePost</p>
+                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
+                    Organize your content and keep growing your avatar without limits
+                  </p>
+                </div>
+              </div>
+              <div className="px-4 pb-4">
+                <a
+                  href="https://likepost.onelink.me/0Rxw/yu98euh9"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+                >
+                  Open LikePost App
+                </a>
+              </div>
+            </div>
           )}
         </motion.div>
 

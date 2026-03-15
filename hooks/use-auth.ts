@@ -4,6 +4,32 @@ import { useState, useEffect, useCallback } from 'react';
 
 const API_URL = 'https://goldfish-app-ohjd4.ondigitalocean.app/api/auth';
 
+// Decode JWT payload (without verification - just for reading claims)
+function decodeJwtPayload(token: string): Record<string, unknown> | null {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const jsonPayload = decodeURIComponent(
+      atob(base64)
+        .split('')
+        .map(c => '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2))
+        .join('')
+    );
+    return JSON.parse(jsonPayload);
+  } catch {
+    return null;
+  }
+}
+
+// Get role from JWT token
+function getRoleFromToken(token: string): 'user' | 'admin' {
+  const payload = decodeJwtPayload(token);
+  if (payload && typeof payload.role === 'string') {
+    return payload.role as 'user' | 'admin';
+  }
+  return 'user';
+}
+
 export interface User {
   id: number;
   email: string;
@@ -47,7 +73,10 @@ export function useAuth() {
 
       if (res.ok) {
         const data = await res.json();
-        setState({ user: data.user, loading: false, error: null });
+        // Get role from JWT token since /me might not return it
+        const role = getRoleFromToken(token);
+        const userWithRole = { ...data.user, role };
+        setState({ user: userWithRole, loading: false, error: null });
       } else {
         // Token expired or invalid
         localStorage.removeItem('access_token');
@@ -152,8 +181,11 @@ export function useAuth() {
       if (res.ok) {
         localStorage.setItem('access_token', data.tokens.access_token);
         localStorage.setItem('refresh_token', data.tokens.refresh_token);
-        setState({ user: data.user, loading: false, error: null });
-        return { success: true, user: data.user };
+        // Get role from JWT token
+        const role = getRoleFromToken(data.tokens.access_token);
+        const userWithRole = { ...data.user, role };
+        setState({ user: userWithRole, loading: false, error: null });
+        return { success: true, user: userWithRole };
       }
 
       return { success: false, error: data.error || 'Invalid email or password' };

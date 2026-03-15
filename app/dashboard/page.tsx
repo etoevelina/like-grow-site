@@ -74,14 +74,6 @@ export default function DashboardPage() {
   // Check if avatar is ready (has actual content)
   const avatarReady = !!(avatar?.current_video_url || avatar?.current_image_url);
 
-  // Debug: log user role
-  useEffect(() => {
-    if (user) {
-      console.log('[v0] User data:', user);
-      console.log('[v0] User role:', user.role);
-    }
-  }, [user]);
-
   // Socket connection
 const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
     setAvatar(updatedAvatar);
@@ -726,10 +718,10 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                   </button>
                 </div>
               </motion.div>
-        </div>
+            </div>
 
-        {/* Feed Tab */}
-        <div className={`max-w-md mx-auto px-4 py-6 ${activeTab !== 'feed' ? 'hidden' : ''}`}>
+            {/* Feed Tab */}
+            <div className={`max-w-md mx-auto px-4 py-6 ${activeTab !== 'feed' ? 'hidden' : ''}`}>
               {/* Feed Header */}
               <div className="mb-6">
                 <h1 className="text-2xl font-bold text-foreground mb-1">Activity History</h1>

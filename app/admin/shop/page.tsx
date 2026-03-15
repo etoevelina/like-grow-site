@@ -271,7 +271,7 @@ export default function ShopItemsPage() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={isCreating || editingId !== null} onOpenChange={() => handleCancel()}>
-        <DialogContent>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{isCreating ? 'Create Shop Item' : 'Edit Shop Item'}</DialogTitle>
             <DialogDescription>

@@ -680,7 +680,6 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                   </button>
                 </div>
               </motion.div>
-            </motion.div>
         </div>
 
         {/* Feed Tab */}

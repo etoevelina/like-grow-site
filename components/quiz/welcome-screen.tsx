@@ -35,7 +35,7 @@ export function WelcomeScreen({ onStart, onLogin }: WelcomeScreenProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="min-h-screen flex flex-col items-center justify-center px-6 py-12"
+      className="min-h-screen flex flex-col items-center justify-center px-6 py-8 overflow-hidden"
     >
       {/* Title */}
       <motion.h1
@@ -61,19 +61,10 @@ export function WelcomeScreen({ onStart, onLogin }: WelcomeScreenProps) {
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.3, type: 'spring', stiffness: 150 }}
-        className="relative mb-12 w-full flex justify-center overflow-hidden"
+        className="relative mb-12 w-full flex justify-center"
       >
         {/* Video container - 80% of screen width, max 400px */}
-        <div className="relative w-[80vw] max-w-[400px] bg-background">
-          {/* Poster image shown until video loads */}
-          {!videoLoaded && (
-            <img
-              src="/images/intro-poster.png"
-              alt=""
-              className="w-full h-auto"
-            />
-          )}
-          
+        <div className="relative w-[80vw] max-w-[400px]">
           {/* Video - tries to autoplay with sound, falls back to muted */}
           <video
             ref={videoRef}

@@ -1,12 +1,8 @@
 'use client';
 
-/**
- * Dashboard Page
- * Main user interface after login
- */
-
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useAuth } from '@/hooks/use-auth';
 import { 
   User, Sparkles, Trophy, Coins, Star, 
   Link2, Send, Loader2, CheckCircle2,
@@ -14,139 +10,160 @@ import {
   Home, ListPlus, ShoppingBag, Clock, X,
   ExternalLink, Settings
 } from 'lucide-react';
-import { useAuth } from '@/hooks/use-auth';
-import { useSocket, ContentSubmitResult } from '@/hooks/use-socket';
-import { getAvatar, Avatar, AvatarProfile, AvatarState, saveAvatarData, getSavedPosts, SavedPost } from '@/lib/avatar-api';
 import { Button } from '@/components/ui/button';
-import {
+import { 
+  Avatar as AvatarType, 
+  AvatarProfile, 
+  getAvatar, 
+  submitContent,
+  getSavedPosts,
+  SavedPost,
+  ContentSubmitResponse,
+} from '@/lib/avatar-api';
+import { 
   Sheet,
   SheetContent,
   SheetHeader,
   SheetTitle,
-  SheetDescription,
 } from '@/components/ui/sheet';
+import { io, Socket } from 'socket.io-client';
 
-type TabType = 'home' | 'feed';
+const API_BASE = 'https://goldfish-app-ohjd4.ondigitalocean.app';
 
-interface HistoryItem {
-  id: string;
-  url: string;
-  xp: number;
-  coins: number;
-  timestamp: Date;
-  status: 'success' | 'processing' | 'error';
-  error?: string;
-}
+// State icons
+const StateIcon = ({ state }: { state: string }) => {
+  switch (state) {
+    case 'healthy':
+      return <Heart className="w-4 h-4 text-green-500" />;
+    case 'tired':
+      return <Frown className="w-4 h-4 text-yellow-500" />;
+    case 'degraded':
+      return <AlertTriangle className="w-4 h-4 text-red-500" />;
+    default:
+      return <Sparkles className="w-4 h-4 text-primary" />;
+  }
+};
+
+// History item component
+const HistoryItem = ({ 
+  item 
+}: { 
+  item: { url: string; status: 'processing' | 'success' | 'error'; xp?: number; coins?: number; platform?: string } 
+}) => (
+  <div className="flex items-center gap-3 py-2 border-b border-border last:border-0">
+    <div className="flex-1 min-w-0">
+      <p className="text-sm truncate text-foreground">{item.url}</p>
+      <div className="flex items-center gap-2 mt-1">
+        {item.status === 'processing' && (
+          <span className="flex items-center gap-1 text-xs text-muted-foreground">
+            <Loader2 className="w-3 h-3 animate-spin" /> Processing...
+          </span>
+        )}
+        {item.status === 'success' && (
+          <span className="flex items-center gap-1 text-xs text-green-500">
+            <CheckCircle2 className="w-3 h-3" /> +{item.xp || 0} XP, +{item.coins || 0} coins
+          </span>
+        )}
+        {item.status === 'error' && (
+          <span className="flex items-center gap-1 text-xs text-red-500">
+            <X className="w-3 h-3" /> Failed
+          </span>
+        )}
+      </div>
+    </div>
+  </div>
+);
+
+// Saved post component
+const SavedPostItem = ({ post }: { post: SavedPost }) => (
+  <motion.div
+    initial={{ opacity: 0, y: 10 }}
+    animate={{ opacity: 1, y: 0 }}
+    className="glass-card rounded-xl p-3 mb-2"
+  >
+    <div className="flex items-start gap-3">
+      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+        {post.platform === 'tiktok' ? (
+          <span className="text-xs font-bold">TT</span>
+        ) : (
+          <span className="text-xs font-bold">IG</span>
+        )}
+      </div>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-foreground truncate">{post.caption || post.post_url}</p>
+        <div className="flex items-center gap-3 mt-1">
+          <span className="text-xs text-green-500">+{post.xp} XP</span>
+          <span className="text-xs text-yellow-500">+{post.coins} coins</span>
+          <span className="text-xs text-muted-foreground">
+            {new Date(post.created_at).toLocaleDateString()}
+          </span>
+        </div>
+      </div>
+      <a 
+        href={post.post_url} 
+        target="_blank" 
+        rel="noopener noreferrer"
+        className="text-muted-foreground hover:text-foreground"
+      >
+        <ExternalLink className="w-4 h-4" />
+      </a>
+    </div>
+  </motion.div>
+);
 
 export default function DashboardPage() {
-  const { user, loading, logout } = useAuth();
-  const [mounted, setMounted] = useState(false);
-  const [avatar, setAvatar] = useState<Avatar | null>(null);
+  const { user, loading: authLoading, logout } = useAuth();
+  
+  // Avatar state
+  const [avatar, setAvatar] = useState<AvatarType | null>(null);
   const [profile, setProfile] = useState<AvatarProfile | null>(null);
   const [avatarLoading, setAvatarLoading] = useState(true);
-  const videoRef = useRef<HTMLVideoElement>(null);
-
-  // Tab navigation
-  const [activeTab, setActiveTab] = useState<TabType>('home');
   
-  // Shop sheet
-  const [showShop, setShowShop] = useState(false);
-
-  // Feed tab state
+  // Content submission
   const [postUrl, setPostUrl] = useState('');
-  const [history, setHistory] = useState<HistoryItem[]>([]);
+  const [history, setHistory] = useState<{ url: string; status: 'processing' | 'success' | 'error'; xp?: number; coins?: number }[]>([]);
   
-  // Saved posts from API
+  // Saved posts
   const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);
   const [savedPostsTotal, setSavedPostsTotal] = useState(0);
-  const [savedPostsLoading, setSavedPostsLoading] = useState(false);
-  const [savedPostsOffset, setSavedPostsOffset] = useState(0);
-  const POSTS_PER_PAGE = 20;
-
-  // New user flow - shutter state
+  
+  // Socket
+  const socketRef = useRef<Socket | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  
+  // UI state
+  const [activeTab, setActiveTab] = useState<'home' | 'feed'>('home');
+  const [showShop, setShowShop] = useState(false);
+  
+  // New user flow
   const [isNewUser, setIsNewUser] = useState(false);
   const [shutterOpen, setShutterOpen] = useState(false);
-  const [showShopPrompt, setShowShopPrompt] = useState(false);
   const [isAvatarCreating, setIsAvatarCreating] = useState(false);
-
-  // Daily post limit (temporarily set to 50 for testing)
+  
+  // Daily post limit
   const MAX_DAILY_POSTS = 50;
   const [todayPostCount, setTodayPostCount] = useState(0);
-
-  // LikePost sync sheet for limit reached
-  const [showLikePostSheet, setShowLikePostSheet] = useState(false);
-
-  // Check if avatar is ready (has actual content)
+  
+  // Check if avatar is ready
   const avatarReady = !!(avatar?.current_video_url || avatar?.current_image_url);
 
-  // Socket connection
-const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
-    setAvatar(updatedAvatar);
-    // Save to localStorage for persistence
-    if (profile) {
-      saveAvatarData(updatedAvatar, profile);
-    }
-  }, [profile]);
-
-  const handleContentResult = useCallback((result: ContentSubmitResult & { url?: string }) => {
-    if (result.ok) {
-      // Success - refresh saved posts and clear matching processing items
-      getSavedPosts(POSTS_PER_PAGE, 0).then(postsResult => {
-        if (postsResult.success && postsResult.data) {
-          setSavedPosts(postsResult.data.posts);
-          setSavedPostsTotal(postsResult.data.total);
-          setSavedPostsOffset(0);
-          
-          // Clear processing items that now exist in saved posts (compare by URL substring)
-          const savedUrls = postsResult.data.posts.map(p => p.post_url);
-          setHistory(prev => prev.filter(item => {
-            if (item.status !== 'processing') return true;
-            // Check if this processing URL is now in saved posts
-            return !savedUrls.some(savedUrl => 
-              item.url.includes(savedUrl) || savedUrl.includes(item.url) ||
-              // Also check by ID in URL (instagram reel ID, tiktok video ID)
-              extractUrlId(item.url) === extractUrlId(savedUrl)
-            );
-          }));
-        }
-      });
-    } else {
-      // Error - mark item as failed if we can match the URL
-      if (result.url) {
-        setHistory(prev => prev.map(item => {
-          if (item.status === 'processing' && item.url.includes(result.url!)) {
-            return { ...item, status: 'error', error: result.error };
-          }
-          return item;
-        }));
-      }
-    }
-  }, []);
-
-  const { isConnected, isSubmitting, submitPost } = useSocket(handleAvatarUpdate, handleContentResult);
-
+  // Check for new user on mount
   useEffect(() => {
-    setMounted(true);
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      const hasCompletedOnboarding = localStorage.getItem('onboarding_complete') === 'true';
       const avatarCreatingFlag = localStorage.getItem('avatar_creating') === 'true';
       
-      // Check if avatar is still being created
       if (avatarCreatingFlag) {
         setIsAvatarCreating(true);
       }
       
-      // Check if new user from URL param AND hasn't completed onboarding before
-      if (params.get('new') === 'true' && !hasCompletedOnboarding) {
+      if (params.get('new') === 'true') {
         setIsNewUser(true);
-        setShowShopPrompt(true);
         setIsAvatarCreating(true);
-        // Clean URL
         window.history.replaceState({}, '', '/dashboard');
       }
       
-      // Load today's post count from localStorage
+      // Load today's post count
       const today = new Date().toDateString();
       const savedData = localStorage.getItem('daily_posts');
       if (savedData) {
@@ -158,44 +175,24 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
     }
   }, []);
 
+  // Load avatar data
   useEffect(() => {
-    if (mounted && !loading && !user) {
-      window.location.href = '/';
+    async function loadAvatar() {
+      setAvatarLoading(true);
+      const result = await getAvatar();
+      if (result.success && result.data) {
+        setAvatar(result.data.avatar);
+        setProfile(result.data.profile);
+      }
+      setAvatarLoading(false);
     }
-  }, [mounted, loading, user]);
-
-  // Fetch avatar data
-  useEffect(() => {
-    if (mounted && user) {
-      const fetchAvatar = async () => {
-        const result = await getAvatar();
-        if (result.success && result.data) {
-          setAvatar(result.data.avatar);
-          setProfile(result.data.profile);
-          
-          // For existing users with ready avatar, open shutter immediately
-          const hasContent = !!(result.data.avatar.current_video_url || result.data.avatar.current_image_url);
-          if (!isNewUser && hasContent) {
-            setShutterOpen(true);
-          }
-        }
-        setAvatarLoading(false);
-      };
-      fetchAvatar();
+    
+    if (user) {
+      loadAvatar();
     }
-  }, [mounted, user, isNewUser]);
+  }, [user]);
 
-  // Handle shutter reveal - only allow if avatar has content
-  const handleRevealAvatar = () => {
-    if (!avatarReady) return; // Can't reveal until avatar has image/video
-    setShutterOpen(true);
-    setShowShopPrompt(false);
-    localStorage.removeItem('avatar_creating');
-    // Mark onboarding as complete so it doesn't show again
-    localStorage.setItem('onboarding_complete', 'true');
-  };
-
-  // Poll for avatar readiness while avatar is being created
+  // Poll for avatar readiness while creating
   useEffect(() => {
     if (!isAvatarCreating || avatarReady) return;
     
@@ -207,665 +204,413 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
         setProfile(result.data.profile);
         
         if (hasContent) {
-          // Avatar is ready - clear creating flag
           setIsAvatarCreating(false);
           localStorage.removeItem('avatar_creating');
         }
       }
-    }, 3000); // Poll every 3 seconds
+    }, 3000);
 
     return () => clearInterval(pollInterval);
   }, [isAvatarCreating, avatarReady]);
 
-  // Fetch saved posts when switching to feed tab
-  const fetchSavedPosts = async (loadMore = false) => {
-    setSavedPostsLoading(true);
-    const offset = loadMore ? savedPostsOffset + POSTS_PER_PAGE : 0;
-    
-    const result = await getSavedPosts(POSTS_PER_PAGE, offset);
-    if (result.success && result.data) {
-      if (loadMore) {
-        setSavedPosts(prev => [...prev, ...result.data!.posts]);
-      } else {
-        setSavedPosts(result.data.posts);
-      }
-      setSavedPostsTotal(result.data.total);
-      setSavedPostsOffset(offset);
-    }
-    setSavedPostsLoading(false);
-  };
-
+  // Load saved posts
   useEffect(() => {
-    if (activeTab === 'feed' && savedPosts.length === 0 && mounted && user) {
-      fetchSavedPosts();
+    async function loadPosts() {
+      const result = await getSavedPosts(20, 0);
+      if (result.success && result.data) {
+        setSavedPosts(result.data.posts);
+        setSavedPostsTotal(result.data.total);
+      }
     }
-  }, [activeTab, mounted, user]);
-
-  const handleSubmitPost = async () => {
-    if (!postUrl.trim()) return;
-    if (todayPostCount >= MAX_DAILY_POSTS) {
-      setShowLikePostSheet(true);
-      return;
+    
+    if (user) {
+      loadPosts();
     }
+  }, [user]);
 
-    const newItem: HistoryItem = {
-      id: Date.now().toString(),
-      url: postUrl,
-      xp: 0,
-      coins: 0,
-      timestamp: new Date(),
-      status: 'processing',
+  // Socket connection
+  useEffect(() => {
+    if (!user) return;
+    
+    const token = localStorage.getItem('access_token');
+    if (!token) return;
+    
+    const socket = io(API_BASE, {
+      auth: { token },
+      transports: ['websocket', 'polling'],
+    });
+    
+    socket.on('connect', () => {
+      setIsConnected(true);
+    });
+    
+    socket.on('disconnect', () => {
+      setIsConnected(false);
+    });
+    
+    socket.on('content_result', (data: ContentSubmitResponse) => {
+      if (data.ok && data.avatar) {
+        setAvatar(data.avatar);
+        
+        // Update history
+        setHistory(prev => prev.map(h => 
+          h.status === 'processing' 
+            ? { ...h, status: 'success' as const, xp: data.xp, coins: data.coins }
+            : h
+        ));
+        
+        // Update post count
+        setTodayPostCount(prev => {
+          const newCount = prev + 1;
+          localStorage.setItem('daily_posts', JSON.stringify({
+            date: new Date().toDateString(),
+            count: newCount
+          }));
+          return newCount;
+        });
+      }
+    });
+    
+    socketRef.current = socket;
+    
+    return () => {
+      socket.disconnect();
     };
+  }, [user]);
 
-    setHistory(prev => [newItem, ...prev]);
+  // Submit post
+  const handleSubmitPost = useCallback(async () => {
+    if (!postUrl.trim() || todayPostCount >= MAX_DAILY_POSTS) return;
+    
+    const url = postUrl.trim();
     setPostUrl('');
     
-    // Update daily count
-    const newCount = todayPostCount + 1;
-    setTodayPostCount(newCount);
-    localStorage.setItem('daily_posts', JSON.stringify({
-      date: new Date().toDateString(),
-      count: newCount,
-    }));
-
-    try {
-      await submitPost(postUrl);
-    } catch (err) {
-      setHistory(prev => prev.map(item => 
-        item.id === newItem.id 
-          ? { ...item, status: 'error', error: err instanceof Error ? err.message : 'Failed' }
-          : item
-      ));
+    setHistory(prev => [{ url, status: 'processing' }, ...prev]);
+    
+    // Try socket first
+    if (socketRef.current?.connected) {
+      socketRef.current.emit('submit_content', { url });
+    } else {
+      // Fallback to HTTP
+      const result = await submitContent(url);
+      if (result.success && result.data?.avatar) {
+        setAvatar(result.data.avatar);
+        setHistory(prev => prev.map(h => 
+          h.url === url 
+            ? { ...h, status: 'success', xp: result.data?.xp, coins: result.data?.coins }
+            : h
+        ));
+        setTodayPostCount(prev => {
+          const newCount = prev + 1;
+          localStorage.setItem('daily_posts', JSON.stringify({
+            date: new Date().toDateString(),
+            count: newCount
+          }));
+          return newCount;
+        });
+      } else {
+        setHistory(prev => prev.map(h => 
+          h.url === url ? { ...h, status: 'error' } : h
+        ));
+      }
     }
+  }, [postUrl, todayPostCount]);
+
+  // Reveal avatar for new users
+  const handleReveal = () => {
+    setShutterOpen(true);
+    localStorage.setItem('onboarding_complete', 'true');
   };
 
-  const getStateInfo = (state: AvatarState) => {
-    switch (state) {
-      case 'healthy':
-        return { icon: Heart, color: 'text-green-500', bg: 'bg-green-500/20', label: 'Healthy' };
-      case 'tired':
-        return { icon: Frown, color: 'text-yellow-500', bg: 'bg-yellow-500/20', label: 'Tired' };
-      case 'degraded':
-        return { icon: AlertTriangle, color: 'text-red-500', bg: 'bg-red-500/20', label: 'Degrading' };
-      default:
-        return { icon: Sparkles, color: 'text-primary', bg: 'bg-primary/20', label: 'Idle' };
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!authLoading && !user) {
+      window.location.href = '/';
     }
-  };
+  }, [authLoading, user]);
 
-  const extractDomain = (url: string) => {
-    try {
-      const domain = new URL(url).hostname;
-      if (domain.includes('tiktok')) return 'TikTok';
-      if (domain.includes('instagram')) return 'Instagram';
-      return domain;
-    } catch {
-      return 'Link';
-    }
-  };
-
-  // Extract content ID from URL for comparison
-  const extractUrlId = (url: string): string => {
-    try {
-      // Instagram: /reel/ABC123/ or /p/ABC123/
-      const instaMatch = url.match(/\/(reel|p)\/([A-Za-z0-9_-]+)/);
-      if (instaMatch) return instaMatch[2];
-      
-      // TikTok: /video/1234567890
-      const tiktokMatch = url.match(/\/video\/(\d+)/);
-      if (tiktokMatch) return tiktokMatch[1];
-      
-      return url;
-    } catch {
-      return url;
-    }
-  };
-
-  if (!mounted || loading) {
+  if (authLoading || !user) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
       </div>
     );
   }
 
-  if (!user) {
-    return null;
-  }
-
-  const stateInfo = avatar ? getStateInfo(avatar.state) : null;
-  const StateIcon = stateInfo?.icon || Sparkles;
-
   return (
-    <div className="min-h-screen bg-background flex flex-col">
-      {/* Main Content Area */}
-      <main className="flex-1 pb-20 overflow-y-auto">
-        {/* Home Tab - always rendered to keep video in DOM */}
-        <div className={`max-w-md mx-auto px-4 py-6 ${activeTab !== 'home' ? 'hidden' : ''}`}>
-              {/* Header */}
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full overflow-hidden">
-                    <img 
-                      src="/images/likegrow-logo.png" 
-                      alt="LikeGrow" 
-                      className="w-full h-full object-cover"
-                    />
-                  </div>
-                  <div>
-                    <h1 className="font-semibold text-foreground">LikeGrow</h1>
-                    <p className="text-xs text-muted-foreground">
-                      {avatar?.level_name || 'Seedling'}
-                    </p>
-                  </div>
-                </div>
-                {/* Header buttons */}
-                <div className="flex items-center gap-2">
-                  {/* Admin link - show for admins or specific emails */}
-                  {(user?.role === 'admin' || user?.email?.includes('admin') || user?.email === 'likegrow.app@gmail.com') && (
-                    <a
-                      href="/admin"
-                      className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors"
-                    >
-                      <Settings className="w-5 h-5 text-muted-foreground" />
-                    </a>
-                  )}
-                  {/* Shop button */}
-                  <button
-                    onClick={() => setShowShop(true)}
-                    className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors"
-                  >
-                    <ShoppingBag className="w-5 h-5 text-muted-foreground" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Avatar Window */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                className="mb-6"
-              >
-                <div 
-                  className="relative rounded-3xl p-2 mx-auto max-w-[280px]"
-                  style={{
-                    background: 'linear-gradient(145deg, oklch(0.2 0.01 260), oklch(0.12 0.005 260))',
-                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5), inset 0 1px 0 oklch(0.3 0.01 260)',
-                  }}
-                >
-                  {/* State indicator */}
-                  {stateInfo && (
-                    <div className={`absolute -top-2 -right-2 z-10 px-2 py-1 rounded-full ${stateInfo.bg} flex items-center gap-1`}>
-                      <StateIcon className={`w-3 h-3 ${stateInfo.color}`} />
-                      <span className={`text-xs font-medium ${stateInfo.color}`}>{stateInfo.label}</span>
-                    </div>
-                  )}
-
-                  <div 
-                    className="relative rounded-2xl overflow-hidden aspect-square cursor-pointer"
-                    style={{
-                      boxShadow: 'inset 0 0 30px oklch(0.5 0.2 320 / 0.3), 0 0 20px oklch(0.5 0.2 320 / 0.2)',
-                    }}
-                    onClick={isNewUser && !shutterOpen ? handleRevealAvatar : undefined}
-                  >
-                    {/* Avatar content */}
-                    {avatarLoading ? (
-                      <div className="w-full h-full bg-card flex items-center justify-center">
-                        <div className="w-12 h-12 rounded-full border-2 border-primary border-t-transparent animate-spin" />
-                      </div>
-                    ) : avatar?.current_video_url ? (
-                      <video
-                        ref={videoRef}
-                        src={avatar.current_video_url}
-                        autoPlay
-                        loop
-                        muted
-                        playsInline
-                        className="w-full h-full object-cover object-center"
-                      />
-                    ) : avatar?.current_image_url ? (
-                      <img
-                        src={avatar.current_image_url}
-                        alt="Your Avatar"
-                        className="w-full h-full object-cover object-center"
-                      />
-                    ) : (
-                      <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex flex-col items-center justify-center p-4">
-                        {isAvatarCreating ? (
-                          <>
-                            <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4" />
-                            <p className="text-xs text-muted-foreground text-center">
-                              Creating...
-                            </p>
-                          </>
-                        ) : (
-                          <>
-                            <motion.div 
-                              animate={{ y: [0, -8, 0] }}
-                              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                            >
-                              <Sparkles className="w-16 h-16 text-primary/50 mb-4" />
-                            </motion.div>
-                            <p className="text-xs text-muted-foreground text-center">
-                              Feed content to see your avatar
-                            </p>
-                          </>
-                        )}
-                      </div>
-                    )}
-
-                    {/* Vignette */}
-                    <div 
-                      className="absolute inset-0 pointer-events-none"
-                      style={{
-                        background: 'radial-gradient(circle, transparent 50%, oklch(0.1 0.01 260 / 0.4) 100%)',
-                      }}
-                    />
-
-                    {/* Shutter overlay for new users */}
-                    {isNewUser && !shutterOpen && !avatarLoading && (
-                      <>
-                        {/* Left shutter */}
-                        <motion.div
-                          initial={{ x: 0 }}
-                          animate={{ x: shutterOpen ? '-100%' : 0 }}
-                          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-                          className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-card to-card/95 z-20"
-                          style={{
-                            boxShadow: 'inset -10px 0 30px oklch(0 0 0 / 0.5)',
-                          }}
-                        >
-                          <div className="absolute right-0 top-0 bottom-0 w-8 bg-gradient-to-l from-black/20 to-transparent" />
-                        </motion.div>
-                        {/* Right shutter */}
-                        <motion.div
-                          initial={{ x: 0 }}
-                          animate={{ x: shutterOpen ? '100%' : 0 }}
-                          transition={{ duration: 0.8, ease: [0.22, 1, 0.36, 1] }}
-                          className="absolute inset-y-0 right-0 w-1/2 bg-gradient-to-l from-card to-card/95 z-20"
-                          style={{
-                            boxShadow: 'inset 10px 0 30px oklch(0 0 0 / 0.5)',
-                          }}
-                        >
-                          <div className="absolute left-0 top-0 bottom-0 w-8 bg-gradient-to-r from-black/20 to-transparent" />
-                        </motion.div>
-                        {/* Tap prompt - changes based on avatar readiness */}
-                        <motion.div 
-                          className="absolute inset-0 z-30 flex flex-col items-center justify-center"
-                          animate={{ opacity: [0.7, 1, 0.7] }}
-                          transition={{ duration: 2, repeat: Infinity }}
-                        >
-                          {avatarReady ? (
-                            <>
-                              <Sparkles className="w-10 h-10 text-primary mb-2" />
-                              <span className="text-sm font-medium text-foreground">Tap to reveal</span>
-                            </>
-                          ) : (
-                            <>
-                              <Loader2 className="w-10 h-10 text-primary mb-2 animate-spin" />
-                              <span className="text-sm font-medium text-foreground">Creating...</span>
-                            </>
-                          )}
-                        </motion.div>
-                      </>
-                    )}
-
-                    
-                  </div>
-
-                  {/* Corner decorations */}
-                  <div className="absolute top-0 left-0 w-6 h-6 border-t-2 border-l-2 border-primary/50 rounded-tl-xl" />
-                  <div className="absolute top-0 right-0 w-6 h-6 border-t-2 border-r-2 border-primary/50 rounded-tr-xl" />
-                  <div className="absolute bottom-0 left-0 w-6 h-6 border-b-2 border-l-2 border-primary/50 rounded-bl-xl" />
-                  <div className="absolute bottom-0 right-0 w-6 h-6 border-b-2 border-r-2 border-primary/50 rounded-br-xl" />
-                </div>
-
-                {/* Personality type */}
-                {profile && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.3 }}
-                    className="text-center mt-4"
-                  >
-                    <h2 className="text-lg font-bold text-foreground">
-                      {profile.personality_type}
-                    </h2>
-                  </motion.div>
-                )}
-              </motion.div>
-
-              {/* Stats */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.1 }}
-                className="grid grid-cols-3 gap-3 mb-6"
-              >
-                <div className="glass-card rounded-2xl p-4 text-center">
-                  <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center mx-auto mb-2">
-                    <Star className="w-5 h-5 text-primary" />
-                  </div>
-                  <span className="text-lg font-bold text-foreground">
-                    {avatar?.level || 1}
-                  </span>
-                  <p className="text-xs text-muted-foreground">Level</p>
-                </div>
-                <div className="glass-card rounded-2xl p-4 text-center">
-                  <div className="w-10 h-10 rounded-xl bg-accent/20 flex items-center justify-center mx-auto mb-2">
-                    <Trophy className="w-5 h-5 text-accent" />
-                  </div>
-                  <span className="text-lg font-bold text-foreground">
-                    {avatar?.experience || 0}
-                  </span>
-                  <p className="text-xs text-muted-foreground">XP</p>
-                </div>
-                <div className="glass-card rounded-2xl p-4 text-center">
-                  <div className="w-10 h-10 rounded-xl bg-yellow-500/20 flex items-center justify-center mx-auto mb-2">
-                    <Coins className="w-5 h-5 text-yellow-500" />
-                  </div>
-                  <span className="text-lg font-bold text-foreground">
-                    {avatar?.coins || 0}
-                  </span>
-                  <p className="text-xs text-muted-foreground">Coins</p>
-                </div>
-              </motion.div>
-
-              {/* Experience bar */}
-              {avatar && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ delay: 0.2 }}
-                  className="mb-6 px-2"
-                >
-                  <div className="flex justify-between text-xs text-muted-foreground mb-1">
-                    <span>{avatar.level_name}</span>
-                    <span>{avatar.experience}/{avatar.exp_to_next_level} XP</span>
-                  </div>
-                  <div className="h-2 bg-muted rounded-full overflow-hidden">
-                    <motion.div
-                      className="h-full bg-gradient-to-r from-primary to-accent"
-                      initial={{ width: 0 }}
-                      animate={{ width: `${avatar.exp_progress_percent}%` }}
-                      transition={{ delay: 0.4, duration: 1 }}
-                    />
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Warning for tired/degraded state */}
-              {avatar && (avatar.state === 'tired' || avatar.state === 'degraded') && (
-                <motion.div
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  className={`mb-6 p-4 rounded-2xl border ${
-                    avatar.state === 'degraded' 
-                      ? 'bg-red-500/10 border-red-500/30' 
-                      : 'bg-yellow-500/10 border-yellow-500/30'
-                  }`}
-                >
-                  <p className={`text-sm font-medium ${
-                    avatar.state === 'degraded' ? 'text-red-400' : 'text-yellow-400'
-                  }`}>
-                    {avatar.state === 'degraded' 
-                      ? 'Your avatar is degrading! Feed them content soon!' 
-                      : 'Your avatar is getting tired. Share some content!'}
-                  </p>
-                </motion.div>
-              )}
-
-              {/* Shop Prompt - show while avatar is being created */}
-              {isAvatarCreating && !avatarReady && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.3 }}
-                  className="mb-6 p-4 rounded-2xl bg-gradient-to-r from-primary/10 to-accent/10 border border-primary/20"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-primary/20 flex items-center justify-center flex-shrink-0">
-                      <ShoppingBag className="w-5 h-5 text-primary" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="text-sm font-medium text-foreground">While you wait...</p>
-                      <p className="text-xs text-muted-foreground">Check out the shop for accessories!</p>
-                    </div>
-                    <Button
-                      onClick={() => setShowShop(true)}
-                      size="sm"
-                      variant="outline"
-                      className="rounded-xl"
-                    >
-                      Browse
-                    </Button>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Feed Widget */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 }}
-                className={`glass-card rounded-2xl p-4 mb-6 ${
-                  (!avatarReady && isNewUser) || avatarLoading ? 'opacity-50' : ''
-                }`}
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <Link2 className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-medium text-foreground">Feed your avatar</span>
-                  </div>
-                  <span className={`text-xs ${todayPostCount >= MAX_DAILY_POSTS ? 'text-destructive' : 'text-muted-foreground'}`}>
-                    {todayPostCount}/{MAX_DAILY_POSTS} today
-                  </span>
-                </div>
-                <div className="flex gap-2">
-                  <input
-                    type="url"
-                    value={postUrl}
-                    onChange={(e) => setPostUrl(e.target.value)}
-                    placeholder={
-                      todayPostCount >= MAX_DAILY_POSTS
-                        ? "Daily limit reached..."
-                        : (!avatarReady && isNewUser) 
-                          ? "Wait for avatar to be ready..." 
-                          : "Paste TikTok or Instagram link..."
-                    }
-                    disabled={(!avatarReady && isNewUser) || avatarLoading || todayPostCount >= MAX_DAILY_POSTS}
-                    className="flex-1 px-3 py-2 bg-input border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
-                    onKeyDown={(e) => e.key === 'Enter' && handleSubmitPost()}
-                  />
-                  <Button
-                    onClick={handleSubmitPost}
-                    disabled={!postUrl.trim() || !isConnected || (!avatarReady && isNewUser) || avatarLoading || todayPostCount >= MAX_DAILY_POSTS}
-                    size="sm"
-                    className="rounded-xl bg-primary text-primary-foreground px-4"
-                  >
-                    <Send className="w-4 h-4" />
-                  </Button>
-                </div>
-                {!isConnected && avatarReady && (
-                  <p className="text-xs text-destructive mt-2">Connecting...</p>
-                )}
-                {todayPostCount >= MAX_DAILY_POSTS && (
-                  <p className="text-xs text-muted-foreground mt-2">Come back tomorrow for more!</p>
-                )}
-              </motion.div>
-
-              {/* Account Info */}
-              <motion.div
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.4 }}
-                className="glass-card rounded-2xl p-4"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
-                    <User className="w-5 h-5 text-muted-foreground" />
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium text-foreground text-sm truncate">
-                      {user.email}
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {avatar?.saved_posts_count || 0} posts saved
-                    </p>
-                  </div>
-                  <button
-                    onClick={() => {
-                      logout();
-                      window.location.href = '/';
-                    }}
-                    className="text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    Logout
-                  </button>
-                </div>
-              </motion.div>
+    <main className="min-h-screen bg-background pb-20">
+      {/* Home Tab */}
+      <div className={`max-w-md mx-auto px-4 py-6 ${activeTab !== 'home' ? 'hidden' : ''}`}>
+        {/* Header */}
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-full overflow-hidden">
+              <img src="/images/likegrow-logo.png" alt="LikeGrow" className="w-full h-full object-cover" />
             </div>
-
-            {/* Feed Tab */}
-            <div className={`max-w-md mx-auto px-4 py-6 ${activeTab !== 'feed' ? 'hidden' : ''}`}>
-              {/* Feed Header */}
-              <div className="mb-6">
-                <h1 className="text-2xl font-bold text-foreground mb-1">Activity History</h1>
-                <p className="text-sm text-muted-foreground">
-                  {savedPostsTotal} posts saved
-                </p>
-              </div>
-
-              {/* Processing items (current session) */}
-              {history.filter(h => h.status === 'processing').length > 0 && (
-                <div className="mb-6">
-                  <div className="flex items-center gap-2 mb-3">
-                    <Loader2 className="w-4 h-4 text-primary animate-spin" />
-                    <span className="text-xs font-medium text-muted-foreground">Processing</span>
-                  </div>
-                  <div className="space-y-2">
-                    {history.filter(h => h.status === 'processing').map((item) => (
-                      <div
-                        key={item.id}
-                        className="p-3 rounded-xl bg-card border border-border"
-                      >
-                        <p className="text-xs text-muted-foreground truncate">{item.url}</p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Saved Posts from API */}
-              <div>
-                <div className="flex items-center gap-2 mb-4">
-                  <Clock className="w-4 h-4 text-muted-foreground" />
-                  <h2 className="text-sm font-medium text-muted-foreground">Saved Posts</h2>
-                </div>
-
-                {savedPostsLoading && savedPosts.length === 0 ? (
-                  <div className="text-center py-12">
-                    <Loader2 className="w-8 h-8 mx-auto text-primary animate-spin" />
-                  </div>
-                ) : savedPosts.length === 0 ? (
-                  <div className="text-center py-12 text-muted-foreground">
-                    <ListPlus className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                    <p className="text-sm">No content yet</p>
-                    <p className="text-xs mt-1">Go to Home and paste a link to get started</p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {savedPosts.map((post) => (
-                      <motion.div
-                        key={post.id}
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className="p-4 rounded-2xl bg-card border border-border"
-                      >
-                        <div className="flex items-start gap-3">
-                          <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
-                            post.platform === 'tiktok' ? 'bg-pink-500/20' : 'bg-purple-500/20'
-                          }`}>
-                            {post.platform === 'tiktok' ? (
-                              <svg className="w-5 h-5 text-pink-500" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-5.2 1.74 2.89 2.89 0 012.31-4.64 2.93 2.93 0 01.88.13V9.4a6.84 6.84 0 00-1-.05A6.33 6.33 0 005 20.1a6.34 6.34 0 0010.86-4.43v-7a8.16 8.16 0 004.77 1.52v-3.4a4.85 4.85 0 01-1-.1z"/>
-                              </svg>
-                            ) : (
-                              <svg className="w-5 h-5 text-purple-500" viewBox="0 0 24 24" fill="currentColor">
-                                <path d="M12 2c2.717 0 3.056.01 4.122.06 1.065.05 1.79.217 2.428.465.66.254 1.216.598 1.772 1.153a4.908 4.908 0 011.153 1.772c.247.637.415 1.363.465 2.428.047 1.066.06 1.405.06 4.122 0 2.717-.01 3.056-.06 4.122-.05 1.065-.218 1.79-.465 2.428a4.883 4.883 0 01-1.153 1.772 4.915 4.915 0 01-1.772 1.153c-.637.247-1.363.415-2.428.465-1.066.047-1.405.06-4.122.06-2.717 0-3.056-.01-4.122-.06-1.065-.05-1.79-.218-2.428-.465a4.89 4.89 0 01-1.772-1.153 4.904 4.904 0 01-1.153-1.772c-.248-.637-.415-1.363-.465-2.428C2.013 15.056 2 14.717 2 12c0-2.717.01-3.056.06-4.122.05-1.066.217-1.79.465-2.428a4.88 4.88 0 011.153-1.772A4.897 4.897 0 015.45 2.525c.638-.248 1.362-.415 2.428-.465C8.944 2.013 9.283 2 12 2zm0 5a5 5 0 100 10 5 5 0 000-10zm6.5-.25a1.25 1.25 0 10-2.5 0 1.25 1.25 0 002.5 0zM12 9a3 3 0 110 6 3 3 0 010-6z"/>
-                              </svg>
-                            )}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center justify-between mb-1">
-                              <span className="text-xs font-medium text-muted-foreground capitalize">
-                                {post.platform}
-                              </span>
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(post.created_at).toLocaleDateString()}
-                              </span>
-                            </div>
-                            {post.description && (
-                              <p className="text-sm text-foreground mb-2 line-clamp-2">
-                                {post.description}
-                              </p>
-                            )}
-                            <div className="flex items-center gap-3">
-                              <span className="text-sm font-medium text-accent">
-                                +{post.xp} XP
-                              </span>
-                              <span className="text-sm font-medium text-yellow-500">
-                                +{post.coins} coins
-                              </span>
-                            </div>
-                          </div>
-                        </div>
-                      </motion.div>
-                    ))}
-
-                    {/* Load more button */}
-                    {savedPosts.length < savedPostsTotal && (
-                      <Button
-                        onClick={() => fetchSavedPosts(true)}
-                        disabled={savedPostsLoading}
-                        variant="outline"
-                        className="w-full rounded-xl"
-                      >
-                        {savedPostsLoading ? (
-                          <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                        ) : null}
-                        Load more
-                      </Button>
-                    )}
-                  </div>
-                )}
-              </div>
+            <div>
+              <h1 className="text-lg font-bold text-foreground">LikeGrow</h1>
+              <p className="text-xs text-muted-foreground">{avatar?.level_name || 'Seedling'}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            {(user?.role === 'admin' || user?.email?.includes('admin') || user?.email === 'likegrow.app@gmail.com') && (
+              <a href="/admin" className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors">
+                <Settings className="w-5 h-5 text-muted-foreground" />
+              </a>
+            )}
+            <button onClick={() => setShowShop(true)} className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors">
+              <ShoppingBag className="w-5 h-5 text-muted-foreground" />
+            </button>
+          </div>
         </div>
-      </main>
 
-      {/* Bottom Tab Bar */}
-      <nav className="fixed bottom-0 left-0 right-0 bg-card/90 backdrop-blur-lg border-t border-border z-50">
-        <div className="max-w-md mx-auto px-6 py-3 flex items-center justify-around">
+        {/* Avatar Window */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="relative aspect-square rounded-3xl overflow-hidden mb-6 glass-card border-2 border-primary/30"
+        >
+          {avatarReady ? (
+            <>
+              {avatar?.current_video_url ? (
+                <video
+                  src={avatar.current_video_url}
+                  autoPlay
+                  loop
+                  muted
+                  playsInline
+                  className="w-full h-full object-cover"
+                />
+              ) : avatar?.current_image_url ? (
+                <img
+                  src={avatar.current_image_url}
+                  alt="Avatar"
+                  className="w-full h-full object-cover"
+                />
+              ) : null}
+              
+              {/* State badge */}
+              <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-background/80 backdrop-blur-sm flex items-center gap-2">
+                <StateIcon state={avatar?.state || 'idle'} />
+                <span className="text-xs capitalize">{avatar?.state || 'Idle'}</span>
+              </div>
+              
+              {/* Reveal animation for new users */}
+              {isNewUser && !shutterOpen && (
+                <motion.div
+                  initial={{ y: 0 }}
+                  animate={shutterOpen ? { y: '-100%' } : { y: 0 }}
+                  transition={{ duration: 0.8, ease: 'easeInOut' }}
+                  className="absolute inset-0 bg-gradient-to-br from-primary to-accent flex items-center justify-center cursor-pointer"
+                  onClick={handleReveal}
+                >
+                  <div className="text-center">
+                    <Sparkles className="w-16 h-16 text-white/80 mx-auto mb-4" />
+                    <p className="text-white font-medium">Tap to reveal your avatar!</p>
+                  </div>
+                </motion.div>
+              )}
+            </>
+          ) : (
+            <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex flex-col items-center justify-center p-4">
+              {isAvatarCreating ? (
+                <>
+                  <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4" />
+                  <p className="text-xs text-muted-foreground text-center">Creating...</p>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-16 h-16 text-primary/50 mb-4" />
+                  <p className="text-xs text-muted-foreground text-center">Feed content to see your avatar</p>
+                </>
+              )}
+            </div>
+          )}
+        </motion.div>
+
+        {/* Personality */}
+        {profile && (
+          <div className="text-center mb-6">
+            <h2 className="text-lg font-semibold text-foreground">{profile.personality_type}</h2>
+            {profile.personality_description && (
+              <p className="text-sm text-muted-foreground mt-1">{profile.personality_description}</p>
+            )}
+          </div>
+        )}
+
+        {/* Stats */}
+        <div className="grid grid-cols-3 gap-3 mb-6">
+          <motion.div className="glass-card rounded-2xl p-4 text-center">
+            <div className="w-10 h-10 rounded-xl bg-primary/10 mx-auto mb-2 flex items-center justify-center">
+              <Star className="w-5 h-5 text-primary" />
+            </div>
+            <p className="text-2xl font-bold text-foreground">{avatar?.level || 1}</p>
+            <p className="text-xs text-muted-foreground">Level</p>
+          </motion.div>
+          
+          <motion.div className="glass-card rounded-2xl p-4 text-center">
+            <div className="w-10 h-10 rounded-xl bg-green-500/10 mx-auto mb-2 flex items-center justify-center">
+              <Trophy className="w-5 h-5 text-green-500" />
+            </div>
+            <p className="text-2xl font-bold text-foreground">{avatar?.experience || 0}</p>
+            <p className="text-xs text-muted-foreground">XP</p>
+          </motion.div>
+          
+          <motion.div className="glass-card rounded-2xl p-4 text-center">
+            <div className="w-10 h-10 rounded-xl bg-yellow-500/10 mx-auto mb-2 flex items-center justify-center">
+              <Coins className="w-5 h-5 text-yellow-500" />
+            </div>
+            <p className="text-2xl font-bold text-foreground">{avatar?.coins || 0}</p>
+            <p className="text-xs text-muted-foreground">Coins</p>
+          </motion.div>
+        </div>
+
+        {/* Experience Progress */}
+        {avatar && (
+          <motion.div className="glass-card rounded-2xl p-4 mb-6">
+            <div className="flex justify-between items-center mb-2">
+              <span className="text-sm text-muted-foreground">{avatar.level_name}</span>
+              <span className="text-xs text-muted-foreground">
+                {avatar.experience}/{avatar.exp_to_next_level + avatar.experience} XP
+              </span>
+            </div>
+            <div className="h-2 bg-muted rounded-full overflow-hidden">
+              <motion.div
+                className="h-full bg-gradient-to-r from-primary to-accent"
+                initial={{ width: 0 }}
+                animate={{ width: `${avatar.exp_progress_percent}%` }}
+                transition={{ delay: 0.4, duration: 1 }}
+              />
+            </div>
+          </motion.div>
+        )}
+
+        {/* Shop Prompt for new users */}
+        {isAvatarCreating && !avatarReady && (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="glass-card rounded-2xl p-4 mb-6 flex items-center gap-4"
+          >
+            <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center">
+              <ShoppingBag className="w-6 h-6 text-primary" />
+            </div>
+            <div className="flex-1">
+              <p className="font-medium text-foreground">While you wait...</p>
+              <p className="text-sm text-muted-foreground">Check out the shop for accessories!</p>
+            </div>
+            <Button variant="outline" size="sm" onClick={() => setShowShop(true)}>
+              Browse
+            </Button>
+          </motion.div>
+        )}
+
+        {/* Feed Widget */}
+        <motion.div className="glass-card rounded-2xl p-4 mb-6">
+          <div className="flex items-center justify-between mb-3">
+            <div className="flex items-center gap-2">
+              <Link2 className="w-4 h-4 text-primary" />
+              <span className="text-sm font-medium text-foreground">Feed your avatar</span>
+            </div>
+            <span className="text-xs text-muted-foreground">{todayPostCount}/{MAX_DAILY_POSTS} today</span>
+          </div>
+          
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={postUrl}
+              onChange={(e) => setPostUrl(e.target.value)}
+              placeholder="Paste TikTok or Instagram link..."
+              disabled={(!avatarReady && isNewUser) || avatarLoading || todayPostCount >= MAX_DAILY_POSTS}
+              className="flex-1 px-3 py-2 bg-input border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              onKeyDown={(e) => e.key === 'Enter' && handleSubmitPost()}
+            />
+            <Button
+              onClick={handleSubmitPost}
+              disabled={!postUrl.trim() || !isConnected || (!avatarReady && isNewUser) || avatarLoading || todayPostCount >= MAX_DAILY_POSTS}
+              size="sm"
+              className="rounded-xl bg-primary text-primary-foreground px-4"
+            >
+              <Send className="w-4 h-4" />
+            </Button>
+          </div>
+          
+          {!isConnected && avatarReady && (
+            <p className="text-xs text-destructive mt-2">Connecting...</p>
+          )}
+          {todayPostCount >= MAX_DAILY_POSTS && (
+            <p className="text-xs text-muted-foreground mt-2">Come back tomorrow for more!</p>
+          )}
+        </motion.div>
+
+        {/* Account Info */}
+        <motion.div className="glass-card rounded-2xl p-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center">
+              <User className="w-5 h-5 text-muted-foreground" />
+            </div>
+            <div className="flex-1">
+              <p className="text-sm font-medium text-foreground">{user?.email}</p>
+              <p className="text-xs text-muted-foreground">{user?.role === 'admin' ? 'Admin' : 'Member'}</p>
+            </div>
+            <button onClick={logout} className="text-xs text-muted-foreground hover:text-foreground">
+              Logout
+            </button>
+          </div>
+        </motion.div>
+      </div>
+
+      {/* Feed Tab */}
+      <div className={`max-w-md mx-auto px-4 py-6 ${activeTab !== 'feed' ? 'hidden' : ''}`}>
+        <div className="mb-6">
+          <h1 className="text-2xl font-bold text-foreground mb-1">Activity History</h1>
+          <p className="text-sm text-muted-foreground">{savedPostsTotal} posts saved</p>
+        </div>
+
+        {/* Processing items */}
+        {history.filter(h => h.status === 'processing').length > 0 && (
+          <div className="mb-4">
+            <p className="text-xs text-muted-foreground mb-2 flex items-center gap-2">
+              <Clock className="w-3 h-3" /> Processing
+            </p>
+            {history.filter(h => h.status === 'processing').map((item, i) => (
+              <HistoryItem key={`processing-${i}`} item={item} />
+            ))}
+          </div>
+        )}
+
+        {/* Saved posts */}
+        {savedPosts.length > 0 ? (
+          <div>
+            {savedPosts.map(post => (
+              <SavedPostItem key={post.id} post={post} />
+            ))}
+          </div>
+        ) : (
+          <div className="text-center py-12">
+            <ListPlus className="w-12 h-12 text-muted-foreground/50 mx-auto mb-3" />
+            <p className="text-muted-foreground">No posts yet</p>
+            <p className="text-sm text-muted-foreground mt-1">Feed content to your avatar to see history</p>
+          </div>
+        )}
+      </div>
+
+      {/* Bottom Navigation */}
+      <nav className="fixed bottom-0 left-0 right-0 bg-background/80 backdrop-blur-lg border-t border-border">
+        <div className="max-w-md mx-auto flex">
           <button
             onClick={() => setActiveTab('home')}
-            className={`flex flex-col items-center gap-1 py-2 px-6 rounded-xl transition-colors ${
-              activeTab === 'home' 
-                ? 'text-primary bg-primary/10' 
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+            className={`flex-1 py-4 flex flex-col items-center gap-1 ${activeTab === 'home' ? 'text-primary' : 'text-muted-foreground'}`}
           >
-            <Home className="w-6 h-6" />
-            <span className="text-xs font-medium">Home</span>
+            <Home className="w-5 h-5" />
+            <span className="text-xs">Home</span>
           </button>
           <button
             onClick={() => setActiveTab('feed')}
-            className={`flex flex-col items-center gap-1 py-2 px-6 rounded-xl transition-colors ${
-              activeTab === 'feed' 
-                ? 'text-primary bg-primary/10' 
-                : 'text-muted-foreground hover:text-foreground'
-            }`}
+            className={`flex-1 py-4 flex flex-col items-center gap-1 ${activeTab === 'feed' ? 'text-primary' : 'text-muted-foreground'}`}
           >
-            <ListPlus className="w-6 h-6" />
-            <span className="text-xs font-medium">Feed</span>
+            <ListPlus className="w-5 h-5" />
+            <span className="text-xs">Feed</span>
           </button>
         </div>
       </nav>
@@ -874,89 +619,17 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
       <Sheet open={showShop} onOpenChange={setShowShop}>
         <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl">
           <SheetHeader>
-            <SheetTitle className="text-xl">Shop</SheetTitle>
-            <SheetDescription>
-              Spend your coins on accessories and items for your avatar
-            </SheetDescription>
+            <SheetTitle className="flex items-center gap-2">
+              <ShoppingBag className="w-5 h-5" />
+              Shop
+            </SheetTitle>
           </SheetHeader>
-          <div className="flex-1 flex items-center justify-center py-12">
-            <div className="text-center">
-              <ShoppingBag className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
-              <p className="text-muted-foreground">Coming soon!</p>
-              <p className="text-xs text-muted-foreground mt-1">
-                You have {avatar?.coins || 0} coins to spend
-              </p>
-            </div>
+          <div className="py-6 text-center text-muted-foreground">
+            <p>Shop coming soon!</p>
+            <p className="text-sm mt-2">Spend coins on accessories and items</p>
           </div>
         </SheetContent>
       </Sheet>
-
-      {/* LikePost Sync Sheet - shown when daily limit is reached */}
-      <Sheet open={showLikePostSheet} onOpenChange={setShowLikePostSheet}>
-        <SheetContent side="bottom" className="rounded-t-3xl">
-          <div className="flex flex-col items-center text-center py-8 px-4">
-            {/* LikePost Logo */}
-            <motion.div
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.3 }}
-              className="mb-6"
-            >
-              <img 
-                src="/images/likepost-logo.gif" 
-                alt="LikePost" 
-                className="w-24 h-24 object-contain"
-              />
-            </motion.div>
-
-            <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.1 }}
-            >
-              <h3 className="text-xl font-bold text-foreground mb-2">
-                Daily Limit Reached
-              </h3>
-              <p className="text-muted-foreground mb-6 max-w-xs">
-                You've used all {MAX_DAILY_POSTS} posts for today. Connect with LikePost to unlock unlimited content sharing!
-              </p>
-            </motion.div>
-
-            <motion.div
-              initial={{ y: 20, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              transition={{ delay: 0.2 }}
-              className="w-full space-y-3"
-            >
-              <Button 
-                className="w-full h-12 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold"
-                onClick={() => {
-                  // TODO: Implement LikePost sync
-                  window.open('https://likepost.app', '_blank');
-                }}
-              >
-                Sync with LikePost
-              </Button>
-              <Button 
-                variant="ghost" 
-                className="w-full"
-                onClick={() => setShowLikePostSheet(false)}
-              >
-                Maybe later
-              </Button>
-            </motion.div>
-
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ delay: 0.3 }}
-              className="text-xs text-muted-foreground mt-6"
-            >
-              Come back tomorrow for {MAX_DAILY_POSTS} more posts
-            </motion.p>
-          </div>
-        </SheetContent>
-      </Sheet>
-    </div>
+    </main>
   );
 }

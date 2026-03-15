@@ -7,7 +7,7 @@ import {
   Link2, Send, Loader2, CheckCircle2,
   Heart, Frown, AlertTriangle, 
   Home, ListPlus, ShoppingBag, Clock, X,
-  ExternalLink
+  ExternalLink, Settings
 } from 'lucide-react';
 import { useAuth } from '@/hooks/use-auth';
 import { useSocket, ContentSubmitResult } from '@/hooks/use-socket';
@@ -353,13 +353,25 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                     </p>
                   </div>
                 </div>
-                {/* Shop button */}
-                <button
-                  onClick={() => setShowShop(true)}
-                  className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors"
-                >
-                  <ShoppingBag className="w-5 h-5 text-muted-foreground" />
-                </button>
+                {/* Header buttons */}
+                <div className="flex items-center gap-2">
+                  {/* Admin link - only for admins */}
+                  {user?.role === 'admin' && (
+                    <a
+                      href="/admin"
+                      className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                    >
+                      <Settings className="w-5 h-5 text-muted-foreground" />
+                    </a>
+                  )}
+                  {/* Shop button */}
+                  <button
+                    onClick={() => setShowShop(true)}
+                    className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors"
+                  >
+                    <ShoppingBag className="w-5 h-5 text-muted-foreground" />
+                  </button>
+                </div>
               </div>
 
               {/* Avatar Window */}

@@ -322,25 +322,29 @@ export default function DashboardPage() {
       setIsConnected(false);
     });
     
-    socket.on('content_result', (data: ContentSubmitResponse) => {
+    // Progress updates
+    socket.on('content_submit_progress', (data: { step: string; message: string }) => {
+      console.log('[v0] Progress:', data.step, data.message);
+      // Could update UI with progress message here
+    });
+
+    // Result handler
+    socket.on('content_submit_result', (data: ContentSubmitResponse) => {
+      console.log('[v0] content_submit_result received:', data);
       if (data.ok && data.avatar) {
         setAvatar(data.avatar);
         
-        // Update history - find the item by looking at the most recent processing one
-        // This assumes results come back in order for each URL
+        // Update history - find first processing item
         setHistory(prev => {
           const updatedHistory = [...prev];
-          // Find first item with 'processing' status and update it
-          let updated = false;
           for (let i = 0; i < updatedHistory.length; i++) {
-            if (updatedHistory[i].status === 'processing' && !updated) {
+            if (updatedHistory[i].status === 'processing') {
               updatedHistory[i] = {
                 ...updatedHistory[i],
                 status: 'success' as const,
                 xp: data.xp,
                 coins: data.coins
               };
-              updated = true;
               break;
             }
           }
@@ -372,6 +376,11 @@ export default function DashboardPage() {
     });
     
     return () => {
+      socket.off('connect');
+      socket.off('disconnect');
+      socket.off('content_submit_progress');
+      socket.off('content_submit_result');
+      socket.off('avatar_updated');
       socket.disconnect();
     };
   }, [user]);
@@ -387,7 +396,7 @@ export default function DashboardPage() {
     
     // Try socket first (from useSocket hook)
     if (socket?.connected) {
-      socket.emit('submit_content', { url });
+      socket.emit('submit_post', { url });
     } else {
       // Fallback to HTTP
       const result = await submitContent(url);

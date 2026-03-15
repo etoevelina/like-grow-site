@@ -557,11 +557,11 @@ export default function DashboardPage() {
             <button onClick={logout} className="text-xs text-muted-foreground hover:text-foreground">
               Logout
             </button>
-          </div>
-        </motion.div>
-      </div>
+                </div>
+              </motion.div>
+            </div>
 
-      {/* Feed Tab */}
+            {/* Feed Tab */}
       <div className={`max-w-md mx-auto px-4 py-6 ${activeTab !== 'feed' ? 'hidden' : ''}`}>
         <div className="mb-6">
           <h1 className="text-2xl font-bold text-foreground mb-1">Activity History</h1>

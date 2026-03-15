@@ -254,22 +254,28 @@ export default function DashboardPage() {
   const handlePurchase = async (item: ShopItem) => {
     if (!avatar || avatar.coins < item.cost) return;
     
+    // Show immediate feedback - remove spinner, show toast, deduct coins optimistically
     setPurchasingId(item.id);
-    setIsGenerating(true);
+    
+    // Optimistically update UI immediately
+    showToast(`Purchasing: ${item.name}...`, 'success');
+    setAvatar(prev => prev ? { ...prev, coins: prev.coins - item.cost } : prev);
+    setPurchasingId(null); // Remove button spinner immediately
+    setIsGenerating(true); // Show generating overlay on avatar
+    
+    // Now wait for server response in background
     const result = await purchaseItem(item.id);
-    setPurchasingId(null);
     
     if (result.success) {
-      // Show success immediately
       showToast(`Purchased: ${item.name}!`, 'success');
-      // Optimistically deduct coins right away
-      setAvatar(prev => prev ? { ...prev, coins: prev.coins - item.cost } : prev);
-      // Update full avatar when ready (loading video shown meanwhile)
+      // Update full avatar when ready
       if (result.avatar) {
         setAvatar(result.avatar);
       }
     } else {
+      // Refund coins on failure
       showToast(result.error || 'Purchase failed', 'error');
+      setAvatar(prev => prev ? { ...prev, coins: prev.coins + item.cost } : prev);
     }
     setIsGenerating(false);
   };

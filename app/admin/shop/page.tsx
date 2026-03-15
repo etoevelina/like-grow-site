@@ -33,6 +33,8 @@ export default function ShopItemsPage() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFile, setImageFile] = useState<File | null>(null);
   
   const [formData, setFormData] = useState({
     name: '',
@@ -65,6 +67,8 @@ export default function ShopItemsPage() {
       image_url: '',
       is_active: true,
     });
+    setImageFile(null);
+    setImagePreview(null);
     setIsCreating(true);
   };
 
@@ -77,23 +81,59 @@ export default function ShopItemsPage() {
       image_url: item.image_url || '',
       is_active: item.is_active,
     });
+    setImageFile(null);
+    setImagePreview(item.image_url || null);
     setEditingId(item.id);
   };
 
   const handleSave = async () => {
     setSaving(true);
     
-    if (isCreating) {
-      const result = await createShopItem(formData);
-      if (result.success) {
+    // Вариант 1: если выбран файл - отправлять FormData
+    if (imageFile) {
+      const formDataBody = new FormData();
+      formDataBody.append('name', formData.name.trim());
+      formDataBody.append('description', formData.description.trim());
+      formDataBody.append('cost', String(formData.price));
+      formDataBody.append('category', formData.category);
+      formDataBody.append('image', imageFile);
+      formDataBody.append('is_active', String(formData.is_active));
+
+      const token = localStorage.getItem('access_token');
+      const response = await fetch('https://goldfish-app-ohjd4.ondigitalocean.app/api/admin/shop/items', {
+        method: isCreating ? 'POST' : 'PUT',
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          // НЕ ставить Content-Type - браузер сам подставит multipart/form-data
+        },
+        body: formDataBody,
+      });
+
+      if (response.ok) {
         await loadItems();
         setIsCreating(false);
-      }
-    } else if (editingId) {
-      const result = await updateShopItem(editingId, formData);
-      if (result.success) {
-        await loadItems();
         setEditingId(null);
+      }
+    } else {
+      // Вариант 2: если только URL или обновление без файла - отправлять JSON
+      if (isCreating) {
+        const result = await createShopItem({
+          ...formData,
+          image_url: formData.image_url.trim() || undefined,
+        });
+        if (result.success) {
+          await loadItems();
+          setIsCreating(false);
+        }
+      } else if (editingId) {
+        const result = await updateShopItem(editingId, {
+          ...formData,
+          image_url: formData.image_url.trim() || undefined,
+        });
+        if (result.success) {
+          await loadItems();
+          setEditingId(null);
+        }
       }
     }
     
@@ -112,6 +152,23 @@ export default function ShopItemsPage() {
   const handleCancel = () => {
     setEditingId(null);
     setIsCreating(false);
+    setImageFile(null);
+    setImagePreview(null);
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Сохраняем файл для отправки
+    setImageFile(file);
+
+    // Создаем превью
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setImagePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
   };
 
   const categories = [
@@ -281,6 +338,54 @@ export default function ShopItemsPage() {
                 onChange={(e) => setFormData({ ...formData, image_url: e.target.value })}
                 placeholder="https://..."
               />
+              <p className="text-xs text-muted-foreground">Или загрузите файл ниже</p>
+            </div>
+            
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Upload Image</label>
+              <div className="border-2 border-dashed border-border rounded-lg p-4 flex flex-col items-center justify-center gap-2 cursor-pointer hover:bg-muted/50 transition-colors">
+                <input
+                  type="file"
+                  name="image"
+                  accept="image/*"
+                  onChange={handleImageChange}
+                  className="hidden"
+                  id="image-upload"
+                />
+                <label htmlFor="image-upload" className="cursor-pointer w-full">
+                  <div className="flex flex-col items-center justify-center gap-2">
+                    <ImageIcon className="w-8 h-8 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Click to upload or drag and drop</span>
+                  </div>
+                </label>
+              </div>
+              
+              {/* Превью картинки */}
+              {imagePreview && (
+                <div className="mt-4">
+                  <p className="text-xs text-muted-foreground mb-2">Preview:</p>
+                  <img 
+                    src={imagePreview} 
+                    alt="Preview" 
+                    className="w-full h-32 object-cover rounded-lg"
+                  />
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      setImageFile(null);
+                      setImagePreview(null);
+                      // Очистить input
+                      const input = document.getElementById('image-upload') as HTMLInputElement;
+                      if (input) input.value = '';
+                    }}
+                    className="mt-2 w-full text-xs"
+                  >
+                    Remove Image
+                  </Button>
+                </div>
+              )}
             </div>
             
             <div className="flex items-center gap-2">

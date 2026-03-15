@@ -248,9 +248,11 @@ export default function DashboardPage() {
     const result = await purchaseItem(item.id);
     setPurchasingId(null);
     
-    if (result.success && result.new_balance !== undefined) {
-      // Update avatar coins locally
-      setAvatar(prev => prev ? { ...prev, coins: result.new_balance! } : prev);
+    if (result.success && result.avatar) {
+      // Update avatar with full response object from server
+      setAvatar(result.avatar);
+      // Show success message
+      alert(`Successfully purchased: ${result.item?.name || 'item'}`);
     } else {
       alert(result.error || 'Purchase failed');
     }

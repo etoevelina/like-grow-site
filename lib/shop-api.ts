@@ -21,7 +21,21 @@ export interface ShopItem {
 export interface PurchaseResult {
   success: boolean;
   message?: string;
-  new_balance?: number;
+  avatar?: {
+    id: number;
+    user_id: number;
+    level: number;
+    experience: number;
+    coins: number;
+    state: string;
+    current_image_url?: string;
+    current_video_url?: string;
+    accessories?: string[];
+  };
+  purchased?: string;
+  item?: ShopItem;
+  image_updated?: boolean;
+  video_updated?: boolean;
   error?: string;
 }
 
@@ -43,31 +57,31 @@ export async function getShopItems(): Promise<{ success: boolean; items?: ShopIt
   }
 }
 
-// Purchase an item
+// Purchase an item from shop
 export async function purchaseItem(itemId: number): Promise<PurchaseResult> {
   try {
-    console.log('[v0] Purchasing item:', itemId);
-    const res = await fetch(`${API_BASE}/shop/purchase`, {
+    const res = await fetch(`${API_BASE}/avatar/purchase`, {
       method: 'POST',
       headers: getAuthHeaders(),
-      body: JSON.stringify({ item_id: itemId }),
+      body: JSON.stringify({ accessory_id: itemId }),
     });
     
-    console.log('[v0] Purchase response status:', res.status);
     const data = await res.json();
-    console.log('[v0] Purchase response data:', data);
     
     if (res.ok) {
       return { 
-        success: true, 
+        success: true,
+        avatar: data.avatar,
+        purchased: data.purchased,
+        item: data.item,
+        image_updated: data.image_updated,
+        video_updated: data.video_updated,
         message: data.message,
-        new_balance: data.new_balance 
       };
     }
     
     return { success: false, error: data.error || 'Purchase failed' };
   } catch (e) {
-    console.log('[v0] Purchase error:', e);
     return { success: false, error: 'Network error' };
   }
 }

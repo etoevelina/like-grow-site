@@ -46,13 +46,16 @@ export async function getShopItems(): Promise<{ success: boolean; items?: ShopIt
 // Purchase an item
 export async function purchaseItem(itemId: number): Promise<PurchaseResult> {
   try {
+    console.log('[v0] Purchasing item:', itemId);
     const res = await fetch(`${API_BASE}/shop/purchase`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({ item_id: itemId }),
     });
     
+    console.log('[v0] Purchase response status:', res.status);
     const data = await res.json();
+    console.log('[v0] Purchase response data:', data);
     
     if (res.ok) {
       return { 
@@ -63,7 +66,8 @@ export async function purchaseItem(itemId: number): Promise<PurchaseResult> {
     }
     
     return { success: false, error: data.error || 'Purchase failed' };
-  } catch {
+  } catch (e) {
+    console.log('[v0] Purchase error:', e);
     return { success: false, error: 'Network error' };
   }
 }

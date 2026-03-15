@@ -1,5 +1,5 @@
 'use client';
-// Dashboard - cache clear v7
+// Dashboard v8 - limit sheet
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -161,6 +161,7 @@ export default function DashboardPage() {
   // Daily post limit
   const MAX_DAILY_POSTS = 5;
   const [todayPostCount, setTodayPostCount] = useState(0);
+  const [showLimitSheet, setShowLimitSheet] = useState(false);
   
   // Check if avatar is ready
   const avatarReady = !!(avatar?.current_video_url || avatar?.current_image_url);
@@ -387,7 +388,10 @@ export default function DashboardPage() {
     const currentCount = countResult.success && countResult.count !== undefined ? countResult.count : todayPostCount;
     setTodayPostCount(currentCount);
 
-    if (currentCount >= MAX_DAILY_POSTS) return;
+    if (currentCount >= MAX_DAILY_POSTS) {
+      setShowLimitSheet(true);
+      return;
+    }
 
         const url = postUrl.trim();
     setPostUrl('');
@@ -685,35 +689,6 @@ export default function DashboardPage() {
               <Send className="w-4 h-4" />
             </Button>
           </div>
-          
-          
-          {todayPostCount >= MAX_DAILY_POSTS && (
-            <div className="mt-4 rounded-2xl overflow-hidden border border-primary/20 bg-gradient-to-br from-primary/10 to-card">
-              <div className="flex items-center gap-4 p-4 pb-3">
-                <img
-                  src="/images/likepost-logo.jpeg"
-                  alt="LikePost"
-                  className="w-14 h-14 rounded-full object-cover flex-shrink-0"
-                />
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-foreground">You hit today's limit!</p>
-                  <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                    Sync with LikePost to organize your content and keep growing your avatar without limits
-                  </p>
-                </div>
-              </div>
-              <div className="px-4 pb-4">
-                <a
-                  href="https://likepost.onelink.me/0Rxw/yu98euh9"
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center justify-center w-full py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
-                >
-                  Open LikePost App
-                </a>
-              </div>
-            </div>
-          )}
         </motion.div>
 
         {/* Account Info */}
@@ -893,6 +868,39 @@ export default function DashboardPage() {
                 })}
               </div>
             )}
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* Limit reached sheet */}
+      <Sheet open={showLimitSheet} onOpenChange={setShowLimitSheet}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <SheetHeader className="text-center pb-4">
+            <SheetTitle className="text-xl">Daily limit reached!</SheetTitle>
+          </SheetHeader>
+          <div className="flex flex-col items-center gap-6 pb-8">
+            <img
+              src="/images/likepost-logo.jpeg"
+              alt="LikePost"
+              className="w-20 h-20 rounded-2xl object-cover"
+            />
+            <p className="text-center text-muted-foreground max-w-xs">
+              Sync with LikePost to organize your content and keep growing your avatar without limits
+            </p>
+            <a
+              href="https://likepost.onelink.me/0Rxw/yu98euh9"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full max-w-xs py-4 rounded-2xl bg-primary text-primary-foreground text-base font-semibold text-center hover:opacity-90 transition-opacity"
+            >
+              Open LikePost App
+            </a>
+            <button
+              onClick={() => setShowLimitSheet(false)}
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+            >
+              Maybe later
+            </button>
           </div>
         </SheetContent>
       </Sheet>

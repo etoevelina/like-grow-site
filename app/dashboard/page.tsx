@@ -326,12 +326,26 @@ export default function DashboardPage() {
       if (data.ok && data.avatar) {
         setAvatar(data.avatar);
         
-        // Update history
-        setHistory(prev => prev.map(h => 
-          h.status === 'processing' 
-            ? { ...h, status: 'success' as const, xp: data.xp, coins: data.coins }
-            : h
-        ));
+        // Update history - find the item by looking at the most recent processing one
+        // This assumes results come back in order for each URL
+        setHistory(prev => {
+          const updatedHistory = [...prev];
+          // Find first item with 'processing' status and update it
+          let updated = false;
+          for (let i = 0; i < updatedHistory.length; i++) {
+            if (updatedHistory[i].status === 'processing' && !updated) {
+              updatedHistory[i] = {
+                ...updatedHistory[i],
+                status: 'success' as const,
+                xp: data.xp,
+                coins: data.coins
+              };
+              updated = true;
+              break;
+            }
+          }
+          return updatedHistory;
+        });
         
         // Update post count
         setTodayPostCount(prev => {
@@ -341,6 +355,18 @@ export default function DashboardPage() {
             count: newCount
           }));
           return newCount;
+        });
+      } else {
+        // Handle error - mark first processing as error
+        setHistory(prev => {
+          const updatedHistory = [...prev];
+          for (let i = 0; i < updatedHistory.length; i++) {
+            if (updatedHistory[i].status === 'processing') {
+              updatedHistory[i] = { ...updatedHistory[i], status: 'error' };
+              break;
+            }
+          }
+          return updatedHistory;
         });
       }
     });

@@ -62,6 +62,7 @@ export default function DashboardPage() {
   const [isNewUser, setIsNewUser] = useState(false);
   const [shutterOpen, setShutterOpen] = useState(false);
   const [showShopPrompt, setShowShopPrompt] = useState(false);
+  const [isAvatarCreating, setIsAvatarCreating] = useState(false);
 
   // Daily post limit (temporarily set to 50 for testing)
   const MAX_DAILY_POSTS = 50;
@@ -124,11 +125,18 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
       const hasCompletedOnboarding = localStorage.getItem('onboarding_complete') === 'true';
+      const avatarCreatingFlag = localStorage.getItem('avatar_creating') === 'true';
+      
+      // Check if avatar is still being created
+      if (avatarCreatingFlag) {
+        setIsAvatarCreating(true);
+      }
       
       // Check if new user from URL param AND hasn't completed onboarding before
       if (params.get('new') === 'true' && !hasCompletedOnboarding) {
         setIsNewUser(true);
         setShowShopPrompt(true);
+        setIsAvatarCreating(true);
         // Clean URL
         window.history.replaceState({}, '', '/dashboard');
       }
@@ -182,24 +190,27 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
     localStorage.setItem('onboarding_complete', 'true');
   };
 
-  // Poll for avatar readiness for new users
+  // Poll for avatar readiness while avatar is being created
   useEffect(() => {
-    if (!isNewUser || avatarReady || avatarLoading) return;
+    if (!isAvatarCreating || avatarReady) return;
     
     const pollInterval = setInterval(async () => {
       const result = await getAvatar();
       if (result.success && result.data) {
         const hasContent = !!(result.data.avatar.current_video_url || result.data.avatar.current_image_url);
+        setAvatar(result.data.avatar);
+        setProfile(result.data.profile);
+        
         if (hasContent) {
-          setAvatar(result.data.avatar);
-          setProfile(result.data.profile);
-          // Avatar is ready - user can now reveal
+          // Avatar is ready - clear creating flag
+          setIsAvatarCreating(false);
+          localStorage.removeItem('avatar_creating');
         }
       }
     }, 3000); // Poll every 3 seconds
 
     return () => clearInterval(pollInterval);
-  }, [isNewUser, avatarReady, avatarLoading]);
+  }, [isAvatarCreating, avatarReady]);
 
   // Fetch saved posts when switching to feed tab
   const fetchSavedPosts = async (loadMore = false) => {
@@ -402,15 +413,26 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                       />
                     ) : (
                       <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex flex-col items-center justify-center p-4">
-                        <motion.div 
-                          animate={{ y: [0, -8, 0] }}
-                          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
-                        >
-                          <Sparkles className="w-16 h-16 text-primary/50 mb-4" />
-                        </motion.div>
-                        <p className="text-xs text-muted-foreground text-center">
-                          {isNewUser ? 'Your avatar is being delivered by stork...' : 'Feed content to see your avatar'}
-                        </p>
+                        {isAvatarCreating ? (
+                          <>
+                            <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4" />
+                            <p className="text-xs text-muted-foreground text-center">
+                              Creating...
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <motion.div 
+                              animate={{ y: [0, -8, 0] }}
+                              transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+                            >
+                              <Sparkles className="w-16 h-16 text-primary/50 mb-4" />
+                            </motion.div>
+                            <p className="text-xs text-muted-foreground text-center">
+                              Feed content to see your avatar
+                            </p>
+                          </>
+                        )}
                       </div>
                     )}
 
@@ -575,8 +597,8 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                 </motion.div>
               )}
 
-              {/* Shop Prompt for new users - show while avatar is being created */}
-              {showShopPrompt && isNewUser && !avatarReady && (
+              {/* Shop Prompt - show while avatar is being created */}
+              {isAvatarCreating && !avatarReady && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}

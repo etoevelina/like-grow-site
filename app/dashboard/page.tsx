@@ -332,6 +332,7 @@ export default function DashboardPage() {
     socket.on('content_submit_result', (data: ContentSubmitResponse) => {
       console.log('[v0] content_submit_result received:', data);
       if (data.ok && data.avatar) {
+        console.log('[v0] Post success, updating avatar and count');
         setAvatar(data.avatar);
         
         // Update history - find first processing item
@@ -339,6 +340,7 @@ export default function DashboardPage() {
           const updatedHistory = [...prev];
           for (let i = 0; i < updatedHistory.length; i++) {
             if (updatedHistory[i].status === 'processing') {
+              console.log('[v0] Updating history item', i, 'to success');
               updatedHistory[i] = {
                 ...updatedHistory[i],
                 status: 'success' as const,
@@ -354,6 +356,7 @@ export default function DashboardPage() {
         // Update post count
         setTodayPostCount(prev => {
           const newCount = prev + 1;
+          console.log('[v0] Updating post count from', prev, 'to', newCount);
           localStorage.setItem('daily_posts', JSON.stringify({
             date: new Date().toDateString(),
             count: newCount
@@ -361,11 +364,13 @@ export default function DashboardPage() {
           return newCount;
         });
       } else {
+        console.log('[v0] Post error or invalid response:', data);
         // Handle error - mark first processing as error
         setHistory(prev => {
           const updatedHistory = [...prev];
           for (let i = 0; i < updatedHistory.length; i++) {
             if (updatedHistory[i].status === 'processing') {
+              console.log('[v0] Updating history item', i, 'to error');
               updatedHistory[i] = { ...updatedHistory[i], status: 'error' };
               break;
             }

@@ -79,7 +79,10 @@ export function AuthScreen({ onComplete, initialMode = 'register' }: AuthScreenP
 
     if (result.success) {
       setStep('success');
-      setTimeout(onComplete, 1500);
+      // For login, go directly to dashboard without new=true (existing user)
+      setTimeout(() => {
+        window.location.href = '/dashboard';
+      }, 1500);
     } else {
       setError(result.error || 'Login failed');
     }

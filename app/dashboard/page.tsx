@@ -74,6 +74,14 @@ export default function DashboardPage() {
   // Check if avatar is ready (has actual content)
   const avatarReady = !!(avatar?.current_video_url || avatar?.current_image_url);
 
+  // Debug: log user role
+  useEffect(() => {
+    if (user) {
+      console.log('[v0] User data:', user);
+      console.log('[v0] User role:', user.role);
+    }
+  }, [user]);
+
   // Socket connection
 const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
     setAvatar(updatedAvatar);
@@ -355,8 +363,8 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                 </div>
                 {/* Header buttons */}
                 <div className="flex items-center gap-2">
-                  {/* Admin link - only for admins */}
-                  {user?.role === 'admin' && (
+                  {/* Admin link - show for admins or specific emails */}
+                  {(user?.role === 'admin' || user?.email?.includes('admin') || user?.email === 'likegrow.app@gmail.com') && (
                     <a
                       href="/admin"
                       className="w-10 h-10 rounded-xl bg-card border border-border flex items-center justify-center hover:bg-muted transition-colors"

@@ -19,6 +19,7 @@ import {
   getAvatar, 
   submitContent,
   getSavedPosts,
+  getTodayPostCount,
   SavedPost,
   ContentSubmitResponse,
 } from '@/lib/avatar-api';
@@ -182,15 +183,8 @@ export default function DashboardPage() {
         window.history.replaceState({}, '', '/dashboard');
       }
       
-      // Load today's post count
-      const today = new Date().toDateString();
-      const savedData = localStorage.getItem('daily_posts');
-      if (savedData) {
-        const { date, count } = JSON.parse(savedData);
-        if (date === today) {
-          setTodayPostCount(count);
-        }
-      }
+      // Remove stale localStorage daily_posts - now using server
+      localStorage.removeItem('daily_posts');
     }
   }, []);
 
@@ -288,42 +282,27 @@ export default function DashboardPage() {
     setGeneratingMessage('Generating...'); // Reset to default
   };
 
-  // Load saved posts and sync today's post count
+  // Load saved posts
   useEffect(() => {
     async function loadPosts() {
-      const result = await getSavedPosts(100, 0); // Get more posts to count today's
-      console.log('[v0] getSavedPosts result:', result);
-      
+      const result = await getSavedPosts(20, 0);
       if (result.success && result.data) {
         setSavedPosts(result.data.posts);
         setSavedPostsTotal(result.data.total);
-        
-        // Count successful posts from today
-        const today = new Date().toDateString();
-        console.log('[v0] Counting posts for today:', today);
-        console.log('[v0] Posts data:', result.data.posts.slice(0, 3)); // Log first 3 posts
-        
-        const todayCount = result.data.posts.filter(post => {
-          const postDate = post.created_at ? new Date(post.created_at).toDateString() : null;
-          console.log('[v0] Post:', post.url, 'status:', post.status, 'date:', postDate);
-          return postDate === today && post.status === 'success';
-        }).length;
-        
-        // Update daily count from server data
-        console.log('[v0] Syncing post count from server:', todayCount);
-        setTodayPostCount(todayCount);
-        localStorage.setItem('daily_posts', JSON.stringify({
-          date: today,
-          count: todayCount
-        }));
-      } else {
-        console.log('[v0] getSavedPosts failed or no data');
       }
     }
-    
-    if (user) {
-      loadPosts();
+    if (user) loadPosts();
+  }, [user]);
+
+  // Load today's post count from server
+  useEffect(() => {
+    async function loadTodayCount() {
+      const result = await getTodayPostCount();
+      if (result.success && result.count !== undefined) {
+        setTodayPostCount(result.count);
+      }
     }
+    if (user) loadTodayCount();
   }, [user]);
 
   // Socket connection
@@ -377,15 +356,7 @@ export default function DashboardPage() {
         ));
         
         // Update post count
-        setTodayPostCount(prev => {
-          const newCount = prev + 1;
-          console.log('[v0] Updating post count from', prev, 'to', newCount);
-          localStorage.setItem('daily_posts', JSON.stringify({
-            date: new Date().toDateString(),
-            count: newCount
-          }));
-          return newCount;
-        });
+        setTodayPostCount(prev => prev + 1);
       } else {
         console.log('[v0] Post error or invalid response:', data);
         // Handle error - mark post as error
@@ -409,9 +380,16 @@ export default function DashboardPage() {
 
   // Submit post
   const handleSubmitPost = useCallback(async () => {
-    if (!postUrl.trim() || todayPostCount >= MAX_DAILY_POSTS) return;
-    
-    const url = postUrl.trim();
+    if (!postUrl.trim()) return;
+
+    // Check today's count from server before submitting
+    const countResult = await getTodayPostCount();
+    const currentCount = countResult.success && countResult.count !== undefined ? countResult.count : todayPostCount;
+    setTodayPostCount(currentCount);
+
+    if (currentCount >= MAX_DAILY_POSTS) return;
+
+        const url = postUrl.trim();
     setPostUrl('');
     
     setHistory(prev => [{ url, status: 'processing' }, ...prev]);
@@ -432,14 +410,7 @@ export default function DashboardPage() {
             ? { ...h, status: 'success', xp: result.data?.xp, coins: result.data?.coins }
             : h
         ));
-        setTodayPostCount(prev => {
-          const newCount = prev + 1;
-          localStorage.setItem('daily_posts', JSON.stringify({
-            date: new Date().toDateString(),
-            count: newCount
-          }));
-          return newCount;
-        });
+        setTodayPostCount(prev => prev + 1);
       } else {
         setHistory(prev => prev.map(h => 
           h.url === url ? { ...h, status: 'error' } : h
@@ -692,7 +663,7 @@ export default function DashboardPage() {
               <Link2 className="w-4 h-4 text-primary" />
               <span className="text-sm font-medium text-foreground">Feed your avatar</span>
             </div>
-            <span className="text-xs text-muted-foreground">{todayPostCount}/{MAX_DAILY_POSTS} today</span>
+            <span className="text-xs text-muted-foreground">{todayPostCount > 0 ? `${todayPostCount}/${MAX_DAILY_POSTS} today` : ''}</span>
           </div>
           
           <div className="flex gap-2">
@@ -717,17 +688,17 @@ export default function DashboardPage() {
           
           
           {todayPostCount >= MAX_DAILY_POSTS && (
-            <div className="mt-4 rounded-2xl overflow-hidden border border-border bg-card">
-              <div className="flex items-center gap-4 p-4">
+            <div className="mt-4 rounded-2xl overflow-hidden border border-primary/20 bg-gradient-to-br from-primary/10 to-card">
+              <div className="flex items-center gap-4 p-4 pb-3">
                 <img
                   src="/images/likepost-logo.jpeg"
                   alt="LikePost"
-                  className="w-16 h-16 rounded-2xl object-cover flex-shrink-0"
+                  className="w-14 h-14 rounded-full object-cover flex-shrink-0"
                 />
                 <div className="flex-1 min-w-0">
-                  <p className="text-sm font-semibold text-foreground">Sync with LikePost</p>
+                  <p className="text-sm font-bold text-foreground">You hit today's limit!</p>
                   <p className="text-xs text-muted-foreground mt-0.5 leading-relaxed">
-                    Organize your content and keep growing your avatar without limits
+                    Sync with LikePost to organize your content and keep growing your avatar without limits
                   </p>
                 </div>
               </div>
@@ -736,7 +707,7 @@ export default function DashboardPage() {
                   href="https://likepost.onelink.me/0Rxw/yu98euh9"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
+                  className="flex items-center justify-center w-full py-3 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:opacity-90 transition-opacity"
                 >
                   Open LikePost App
                 </a>

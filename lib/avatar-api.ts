@@ -309,6 +309,37 @@ export async function getSavedPosts(limit: number = 20, offset: number = 0): Pro
   }
 }
 
+// Get today's post count
+export async function getTodayPostCount(): Promise<{
+  success: boolean;
+  count?: number;
+  error?: string;
+}> {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const response = await fetch(`${API_BASE}/api/content/posts/today-count`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.error || 'Failed to get count' };
+    }
+
+    return { success: true, count: data.count ?? 0 };
+  } catch {
+    return { success: false, error: 'Network error. Please try again.' };
+  }
+}
+
 // Get avatar history
 export interface EvolutionHistoryItem {
   image_url: string;

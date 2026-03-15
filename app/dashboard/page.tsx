@@ -440,9 +440,9 @@ export default function DashboardPage() {
                     loop
                     muted
                     playsInline
-                    className="w-48 h-48 object-contain"
+                    className="w-72 h-72 object-contain"
                   />
-                  <p className="text-white text-lg mt-6 font-medium">Generating...</p>
+                  <p className="text-white text-xl mt-8 font-medium">Generating...</p>
                 </div>
               )}
               
@@ -494,9 +494,9 @@ export default function DashboardPage() {
                 loop
                 muted
                 playsInline
-                className="w-48 h-48 object-contain"
+                className="w-72 h-72 object-contain"
               />
-              <p className="text-lg text-white mt-6 font-medium">Generating...</p>
+              <p className="text-xl text-white mt-8 font-medium">Generating...</p>
             </div>
           )}
         </motion.div>

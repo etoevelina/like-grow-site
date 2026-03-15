@@ -22,6 +22,7 @@ import {
   SavedPost,
   ContentSubmitResponse,
 } from '@/lib/avatar-api';
+import { getShopItems, purchaseItem, type ShopItem } from '@/lib/shop-api';
 import { 
   Sheet,
   SheetContent,
@@ -141,6 +142,11 @@ export default function DashboardPage() {
   const [activeTab, setActiveTab] = useState<'home' | 'feed'>('home');
   const [showShop, setShowShop] = useState(false);
   
+  // Shop state
+  const [shopItems, setShopItems] = useState<ShopItem[]>([]);
+  const [shopLoading, setShopLoading] = useState(false);
+  const [purchasingId, setPurchasingId] = useState<number | null>(null);
+  
   // New user flow
   const [isNewUser, setIsNewUser] = useState(false);
   const [shutterOpen, setShutterOpen] = useState(false);
@@ -218,6 +224,37 @@ export default function DashboardPage() {
 
     return () => clearInterval(pollInterval);
   }, [isAvatarCreating, avatarReady]);
+
+  // Load shop items when shop opens
+  useEffect(() => {
+    async function loadShopItems() {
+      if (!showShop) return;
+      setShopLoading(true);
+      const result = await getShopItems();
+      if (result.success && result.items) {
+        setShopItems(result.items.filter(item => item.is_active));
+      }
+      setShopLoading(false);
+    }
+    
+    loadShopItems();
+  }, [showShop]);
+
+  // Handle purchase
+  const handlePurchase = async (item: ShopItem) => {
+    if (!avatar || avatar.coins < item.cost) return;
+    
+    setPurchasingId(item.id);
+    const result = await purchaseItem(item.id);
+    setPurchasingId(null);
+    
+    if (result.success && result.new_balance !== undefined) {
+      // Update avatar coins locally
+      setAvatar(prev => prev ? { ...prev, coins: result.new_balance! } : prev);
+    } else {
+      alert(result.error || 'Purchase failed');
+    }
+  };
 
   // Load saved posts
   useEffect(() => {
@@ -642,17 +679,96 @@ export default function DashboardPage() {
 
       {/* Shop Sheet */}
       <Sheet open={showShop} onOpenChange={setShowShop}>
-        <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl">
-          <SheetHeader>
-            <SheetTitle className="flex items-center gap-2">
-              <ShoppingBag className="w-5 h-5" />
-              Shop
-            </SheetTitle>
+        <SheetContent side="bottom" className="h-[80vh] rounded-t-3xl overflow-hidden flex flex-col">
+          <SheetHeader className="flex-shrink-0">
+            <div className="flex items-center justify-between">
+              <SheetTitle className="flex items-center gap-2">
+                <ShoppingBag className="w-5 h-5" />
+                Shop
+              </SheetTitle>
+              <div className="flex items-center gap-1 bg-card px-3 py-1 rounded-full">
+                <Coins className="w-4 h-4 text-yellow-500" />
+                <span className="font-semibold">{avatar?.coins || 0}</span>
+              </div>
+            </div>
             <SheetDescription>Spend coins on accessories and items for your avatar</SheetDescription>
           </SheetHeader>
-          <div className="py-6 text-center text-muted-foreground">
-            <p>Shop coming soon!</p>
-            <p className="text-sm mt-2">Spend coins on accessories and items</p>
+          
+          <div className="flex-1 overflow-y-auto py-4">
+            {shopLoading ? (
+              <div className="flex items-center justify-center h-40">
+                <Loader2 className="w-8 h-8 animate-spin text-primary" />
+              </div>
+            ) : shopItems.length === 0 ? (
+              <div className="text-center text-muted-foreground py-12">
+                <ShoppingBag className="w-12 h-12 mx-auto mb-4 opacity-50" />
+                <p>No items available yet</p>
+                <p className="text-sm mt-2">Check back later for new items!</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-2 gap-4">
+                {shopItems.map(item => {
+                  const canAfford = (avatar?.coins || 0) >= item.cost;
+                  const isPurchasing = purchasingId === item.id;
+                  
+                  return (
+                    <div
+                      key={item.id}
+                      className="glass-card rounded-2xl overflow-hidden border border-border"
+                    >
+                      {/* Item Image */}
+                      <div className="aspect-square bg-muted/30 relative">
+                        {item.image_url ? (
+                          <img
+                            src={item.image_url}
+                            alt={item.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center">
+                            <ShoppingBag className="w-8 h-8 text-muted-foreground/50" />
+                          </div>
+                        )}
+                        {/* Price badge */}
+                        <div className="absolute top-2 right-2 bg-background/90 backdrop-blur px-2 py-1 rounded-full flex items-center gap-1">
+                          <Coins className="w-3 h-3 text-yellow-500" />
+                          <span className="text-xs font-semibold">{item.cost}</span>
+                        </div>
+                      </div>
+                      
+                      {/* Item Info */}
+                      <div className="p-3">
+                        <h3 className="font-medium text-sm truncate">{item.name}</h3>
+                        {item.description && (
+                          <p className="text-xs text-muted-foreground line-clamp-2 mt-1">
+                            {item.description}
+                          </p>
+                        )}
+                        
+                        {/* Buy Button */}
+                        <button
+                          onClick={() => handlePurchase(item)}
+                          disabled={!canAfford || isPurchasing}
+                          className={`w-full mt-3 py-2 rounded-xl text-sm font-medium transition-colors ${
+                            canAfford
+                              ? 'bg-primary text-primary-foreground hover:bg-primary/90'
+                              : 'bg-muted text-muted-foreground cursor-not-allowed'
+                          }`}
+                        >
+                          {isPurchasing ? (
+                            <Loader2 className="w-4 h-4 animate-spin mx-auto" />
+                          ) : canAfford ? (
+                            'Buy'
+                          ) : (
+                            'Not enough coins'
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </SheetContent>
       </Sheet>

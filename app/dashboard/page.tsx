@@ -447,6 +447,7 @@ export default function DashboardPage() {
               )}
               
               {/* Avatar display */}
+              {avatar?.current_video_url ? (
                 <video
                   src={avatar.current_video_url}
                   autoPlay

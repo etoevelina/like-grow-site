@@ -150,7 +150,7 @@ export default function DashboardPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingMessage, setGeneratingMessage] = useState('Generating...');
   const [purchaseSuccess, setPurchaseSuccess] = useState<{ itemName: string; show: boolean }>({ itemName: '', show: false });
-  const [pendingPostUrls, setPendingPostUrls] = useState<string[]>([]); // Track pending posts in order
+  const pendingPostUrlsRef = useRef<string[]>([]); // Track pending posts in order (using ref to avoid stale closure)
   
   // New user flow
   const [isNewUser, setIsNewUser] = useState(false);
@@ -333,16 +333,17 @@ export default function DashboardPage() {
     socket.on('content_submit_result', (data: ContentSubmitResponse) => {
       console.log('[v0] content_submit_result received:', data);
       
-      // Get the URL that was submitted (first in pending queue)
-      const submittedUrl = pendingPostUrls[0];
+      // Get the URL that was submitted (first in pending queue) - using ref to avoid stale closure
+      const submittedUrl = pendingPostUrlsRef.current[0];
+      console.log('[v0] Current pending URLs:', pendingPostUrlsRef.current, 'processing:', submittedUrl);
+      
       if (submittedUrl) {
         // Remove from pending queue
-        setPendingPostUrls(prev => prev.slice(1));
-        console.log('[v0] Processing result for URL:', submittedUrl, 'remaining pending:', pendingPostUrls.length - 1);
+        pendingPostUrlsRef.current = pendingPostUrlsRef.current.slice(1);
       }
       
       if (data.ok && data.avatar) {
-        console.log('[v0] Post success, updating avatar and history');
+        console.log('[v0] Post success, updating avatar and history for URL:', submittedUrl);
         setAvatar(data.avatar);
         
         // Update history - find the post by URL
@@ -391,7 +392,8 @@ export default function DashboardPage() {
     setPostUrl('');
     
     setHistory(prev => [{ url, status: 'processing' }, ...prev]);
-    setPendingPostUrls(prev => [...prev, url]); // Add to pending queue
+    pendingPostUrlsRef.current = [...pendingPostUrlsRef.current, url]; // Add to pending queue using ref
+    console.log('[v0] Added to pending queue:', url, 'queue length:', pendingPostUrlsRef.current.length);
     
     // Try socket first (from useSocket hook)
     if (socket?.connected) {

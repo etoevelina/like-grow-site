@@ -1,5 +1,5 @@
 'use client';
-// Dashboard - cache refresh v6
+// Dashboard - cache clear v7
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -292,14 +292,20 @@ export default function DashboardPage() {
   useEffect(() => {
     async function loadPosts() {
       const result = await getSavedPosts(100, 0); // Get more posts to count today's
+      console.log('[v0] getSavedPosts result:', result);
+      
       if (result.success && result.data) {
         setSavedPosts(result.data.posts);
         setSavedPostsTotal(result.data.total);
         
         // Count successful posts from today
         const today = new Date().toDateString();
+        console.log('[v0] Counting posts for today:', today);
+        console.log('[v0] Posts data:', result.data.posts.slice(0, 3)); // Log first 3 posts
+        
         const todayCount = result.data.posts.filter(post => {
-          const postDate = new Date(post.created_at).toDateString();
+          const postDate = post.created_at ? new Date(post.created_at).toDateString() : null;
+          console.log('[v0] Post:', post.url, 'status:', post.status, 'date:', postDate);
           return postDate === today && post.status === 'success';
         }).length;
         
@@ -310,6 +316,8 @@ export default function DashboardPage() {
           date: today,
           count: todayCount
         }));
+      } else {
+        console.log('[v0] getSavedPosts failed or no data');
       }
     }
     

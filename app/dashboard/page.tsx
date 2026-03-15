@@ -20,6 +20,7 @@ import {
   submitContent,
   getSavedPosts,
   getTodayPostCount,
+  tapAvatar,
   SavedPost,
   ContentSubmitResponse,
 } from '@/lib/avatar-api';
@@ -194,9 +195,31 @@ export default function DashboardPage() {
   const MAX_DAILY_POSTS = 5;
   const [todayPostCount, setTodayPostCount] = useState(0);
   const [showLimitSheet, setShowLimitSheet] = useState(false);
+  const [tapMessage, setTapMessage] = useState<string | null>(null);
+  const [tapPulse, setTapPulse] = useState(false);
   
   // Check if avatar is ready
   const avatarReady = !!(avatar?.current_video_url || avatar?.current_image_url);
+
+  // Rotating messages while avatar is generating — so the user sees progress and stays engaged
+  const CREATION_STEPS = [
+    'Reading your taste...',
+    'Drawing your twin...',
+    'Choosing the right vibes...',
+    'Adding the finishing touches...',
+    'Almost there...',
+    'Your twin is taking shape...',
+  ];
+  useEffect(() => {
+    if (!isGenerating && avatarReady) return;
+    let i = 0;
+    setGeneratingMessage(CREATION_STEPS[0]);
+    const t = setInterval(() => {
+      i = (i + 1) % CREATION_STEPS.length;
+      setGeneratingMessage(CREATION_STEPS[i]);
+    }, 3800);
+    return () => clearInterval(t);
+  }, [isGenerating, avatarReady]);
 
   // Check for new user on mount
   useEffect(() => {
@@ -430,6 +453,19 @@ export default function DashboardPage() {
     localStorage.setItem('onboarding_complete', 'true');
   };
 
+  // Tap avatar for bonus XP (no cooldown)
+  const handleTapAvatar = async () => {
+    if (!avatarReady || isGenerating || purchaseSuccess.show) return;
+    if (isNewUser && !shutterOpen) return;
+    const result = await tapAvatar();
+    if (result.success && result.avatar) {
+      setAvatar(result.avatar as AvatarType);
+      setTapPulse(true);
+      setTapMessage(`+${result.xp_awarded ?? 0} XP!`);
+      setTimeout(() => setTapMessage(null), 2000);
+    }
+  };
+
   // Complete a task (XP + coins)
   const handleCompleteTask = async (taskId: number) => {
     setCompletingTaskId(taskId);
@@ -486,11 +522,14 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Avatar Window */}
+        {/* Avatar Window — tap for bonus XP */}
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
-          className="relative aspect-square rounded-3xl overflow-hidden mb-6 glass-card border-2 border-primary/30"
+          onClick={avatarReady && !isGenerating && !purchaseSuccess.show && (!isNewUser || shutterOpen) ? handleTapAvatar : undefined}
+          className={`relative aspect-square rounded-3xl overflow-hidden mb-6 glass-card border-2 border-primary/30 ${
+            avatarReady && !isGenerating && !purchaseSuccess.show && (!isNewUser || shutterOpen) ? 'cursor-pointer' : ''
+          }`}
         >
           {avatarReady ? (
             <>
@@ -506,6 +545,13 @@ export default function DashboardPage() {
                     className="w-72 h-72 object-contain"
                   />
                   <p className="text-white text-xl mt-8 font-medium">{generatingMessage}</p>
+                  <div className="w-40 h-0.5 bg-white/20 rounded-full mt-4 overflow-hidden">
+                    <motion.div
+                      className="h-full bg-primary rounded-full"
+                      animate={{ width: ['0%', '70%', '100%', '30%'] }}
+                      transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+                    />
+                  </div>
                 </div>
               )}
               
@@ -520,23 +566,30 @@ export default function DashboardPage() {
                 </div>
               )}
               
-              {/* Avatar display */}
-              {avatar?.current_video_url ? (
-                <video
-                  src={avatar.current_video_url}
-                  autoPlay
-                  loop
-                  muted
-                  playsInline
-                  className="w-full h-full object-cover"
-                />
-              ) : avatar?.current_image_url ? (
-                <img
-                  src={avatar.current_image_url}
-                  alt="Avatar"
-                  className="w-full h-full object-cover"
-                />
-              ) : null}
+              {/* Avatar display — pulse on tap */}
+              <motion.div
+                className="absolute inset-0"
+                animate={{ scale: tapPulse ? [1, 1.07, 1] : 1 }}
+                transition={{ duration: 0.35, ease: 'easeOut' }}
+                onAnimationComplete={() => tapPulse && setTapPulse(false)}
+              >
+                {avatar?.current_video_url ? (
+                  <video
+                    src={avatar.current_video_url}
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-full h-full object-cover"
+                  />
+                ) : avatar?.current_image_url ? (
+                  <img
+                    src={avatar.current_image_url}
+                    alt="Avatar"
+                    className="w-full h-full object-cover"
+                  />
+                ) : null}
+              </motion.div>
               
               {/* State badge */}
               <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-background/80 backdrop-blur-sm flex items-center gap-2">
@@ -559,6 +612,20 @@ export default function DashboardPage() {
                   </div>
                 </motion.div>
               )}
+
+              {/* Tap-for-XP feedback */}
+              {tapMessage && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.8 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute inset-0 flex items-center justify-center pointer-events-none z-20"
+                >
+                  <span className="px-4 py-2 rounded-full bg-primary/90 text-primary-foreground font-semibold text-lg shadow-lg">
+                    {tapMessage}
+                  </span>
+                </motion.div>
+              )}
             </>
           ) : (
             <div className="w-full h-full bg-black flex flex-col items-center justify-center p-4">
@@ -571,6 +638,14 @@ export default function DashboardPage() {
                 className="w-72 h-72 object-contain"
               />
               <p className="text-xl text-white mt-8 font-medium">{generatingMessage}</p>
+              <div className="w-48 h-1 bg-white/20 rounded-full mt-4 overflow-hidden">
+                <motion.div
+                  className="h-full bg-primary rounded-full"
+                  initial={{ width: '0%' }}
+                  animate={{ width: ['0%', '70%', '100%', '30%', '70%'] }}
+                  transition={{ duration: 4, repeat: Infinity, ease: 'easeInOut' }}
+                />
+              </div>
             </div>
           )}
         </motion.div>

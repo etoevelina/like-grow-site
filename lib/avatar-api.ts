@@ -209,6 +209,49 @@ export async function getAvatarProfile(): Promise<{
   }
 }
 
+// Tap avatar for bonus XP (cooldown on backend)
+export async function tapAvatar(): Promise<{
+  success: boolean;
+  xp_awarded?: number;
+  avatar?: Avatar;
+  cooldown_seconds_remaining?: number;
+  error?: string;
+}> {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      return { success: false, error: 'Not authenticated' };
+    }
+    const response = await fetch(`${API_URL}/avatar/tap`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({}),
+    });
+    const data = await response.json();
+    if (response.status === 429) {
+      return {
+        success: false,
+        error: 'cooldown',
+        cooldown_seconds_remaining: data.cooldown_seconds_remaining ?? 0,
+        avatar: data.avatar,
+      };
+    }
+    if (!response.ok) {
+      return { success: false, error: data.error || 'Failed' };
+    }
+    return {
+      success: true,
+      xp_awarded: data.xp_awarded,
+      avatar: data.avatar,
+    };
+  } catch {
+    return { success: false, error: 'Network error' };
+  }
+}
+
 // Submit content via HTTP (alternative to socket)
 export interface ContentSubmitResponse {
   ok: boolean;

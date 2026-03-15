@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronRight, ChevronLeft, TrendingUp, Skull, Baby } from 'lucide-react';
+import { ChevronRight, ChevronLeft, TrendingUp, Skull, Baby, Link2 } from 'lucide-react';
 import { createAvatar, formatQuizAnswers, Avatar, AvatarProfile, QuizAnswer, saveAvatarData } from '@/lib/avatar-api';
 import { QuizState } from '@/lib/quiz-types';
 import { Button } from '@/components/ui/button';
@@ -13,21 +13,29 @@ interface AvatarCreationProps {
   onError: (error: string) => void;
 }
 
-// Onboarding slides - shortened to 3 key messages
+// Onboarding slides after registration: what the avatar is + how the app works
 const ONBOARDING_SLIDES = [
   {
     id: 'newborn',
     icon: Baby,
     title: 'Your Avatar is Born',
-    description: 'A blank canvas ready to grow. Share content from Instagram and TikTok to shape who they become.',
+    description: 'A twin that grows from your taste. Share links from Instagram and TikTok to shape who they become.',
     highlight: 'Fitness = muscular, Travel = explorer, Fashion = stylish',
     color: 'primary',
+  },
+  {
+    id: 'how-it-works',
+    icon: Link2,
+    title: 'How the App Works',
+    description: 'On the dashboard you’ll feed your avatar with TikTok or Instagram links. Each post gives XP and coins. Complete tasks for extra rewards, spend coins in the shop on looks, and tap your avatar for bonus XP.',
+    highlight: 'Connect LikePost to unlock more daily submissions and keep growing.',
+    color: 'accent',
   },
   {
     id: 'grow',
     icon: TrendingUp,
     title: 'Level Up & Earn',
-    description: 'Every post earns XP and coins. Level up from Seedling to Legend, and shop for accessories.',
+    description: 'Every post earns XP and coins. Level up from Seedling to Legend. Buy accessories in the shop—your avatar’s look updates when you equip them.',
     highlight: 'Your content taste has real value here',
     color: 'accent',
   },
@@ -35,16 +43,35 @@ const ONBOARDING_SLIDES = [
     id: 'warning',
     icon: Skull,
     title: 'Keep Them Alive',
-    description: 'Without fresh content, your avatar will degrade and fade away. A mirror of how content affects us all.',
-    highlight: 'Feed them regularly to keep them thriving',
+    description: 'Without fresh content, your avatar will degrade and fade. Feed them regularly to keep them thriving.',
+    highlight: 'Connect LikePost to avoid limits and organize your saves',
     color: 'destructive',
   },
+];
+
+const CREATION_STEP_MESSAGES = [
+  'Reading your taste...',
+  'Drawing your twin...',
+  'Choosing the right vibes...',
+  'Adding the finishing touches...',
+  'Almost there...',
+  'Your twin is taking shape...',
 ];
 
 export function AvatarCreation({ quizState, onComplete }: AvatarCreationProps) {
   const [currentSlide, setCurrentSlide] = useState(0);
   const [creationStatus, setCreationStatus] = useState<'creating' | 'waiting' | 'ready'>('creating');
+  const [stepMessageIndex, setStepMessageIndex] = useState(0);
   const creationSentRef = useRef(false);
+
+  // Rotate progress messages so the user sees things moving
+  useEffect(() => {
+    if (creationStatus === 'ready') return;
+    const t = setInterval(() => {
+      setStepMessageIndex((i) => (i + 1) % CREATION_STEP_MESSAGES.length);
+    }, 3800);
+    return () => clearInterval(t);
+  }, [creationStatus]);
 
   // Start avatar creation once when component mounts (ref prevents double send in React Strict Mode)
   useEffect(() => {
@@ -204,13 +231,13 @@ export function AvatarCreation({ quizState, onComplete }: AvatarCreationProps) {
             {creationStatus === 'creating' && (
               <>
                 <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />
-                <span className="text-xs text-muted-foreground">Creating your avatar...</span>
+                <span className="text-xs text-muted-foreground">{CREATION_STEP_MESSAGES[stepMessageIndex]}</span>
               </>
             )}
             {creationStatus === 'waiting' && (
               <>
                 <div className="w-3 h-3 rounded-full bg-yellow-500 animate-pulse" />
-                <span className="text-xs text-muted-foreground">Your avatar is being delivered by stork...</span>
+                <span className="text-xs text-muted-foreground">{CREATION_STEP_MESSAGES[stepMessageIndex]}</span>
               </>
             )}
             {creationStatus === 'ready' && (

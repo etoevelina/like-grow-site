@@ -1,5 +1,9 @@
 'use client';
-/* Dashboard page v3 - fixed JSX structure */
+
+/**
+ * Dashboard Page
+ * Main user interface after login
+ */
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';

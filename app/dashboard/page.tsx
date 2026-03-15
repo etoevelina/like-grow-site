@@ -288,13 +288,28 @@ export default function DashboardPage() {
     setGeneratingMessage('Generating...'); // Reset to default
   };
 
-  // Load saved posts
+  // Load saved posts and sync today's post count
   useEffect(() => {
     async function loadPosts() {
-      const result = await getSavedPosts(20, 0);
+      const result = await getSavedPosts(100, 0); // Get more posts to count today's
       if (result.success && result.data) {
         setSavedPosts(result.data.posts);
         setSavedPostsTotal(result.data.total);
+        
+        // Count successful posts from today
+        const today = new Date().toDateString();
+        const todayCount = result.data.posts.filter(post => {
+          const postDate = new Date(post.created_at).toDateString();
+          return postDate === today && post.status === 'success';
+        }).length;
+        
+        // Update daily count from server data
+        console.log('[v0] Syncing post count from server:', todayCount);
+        setTodayPostCount(todayCount);
+        localStorage.setItem('daily_posts', JSON.stringify({
+          date: today,
+          count: todayCount
+        }));
       }
     }
     

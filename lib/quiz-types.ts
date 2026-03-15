@@ -73,11 +73,11 @@ export interface SwipeCard {
 
 export const SWIPE_CARDS: Record<Category, SwipeCard[]> = {
   movies: [
-    { id: 'mov1', title: 'Sci-Fi Thriller', subtitle: 'Mind-bending plots & epic visuals', image: 'https://images.unsplash.com/photo-1534809027769-b00d750a6bac?w=500', category: 'movies' },
-    { id: 'mov2', title: 'Action & Superheroes', subtitle: 'Marvel, DC, explosions', image: 'https://images.unsplash.com/photo-1635805737707-575885ab0820?w=500', category: 'movies' },
+    { id: 'mov1', title: 'Sci-Fi Thriller', subtitle: 'Mind-bending plots & epic visuals', image: 'https://images.unsplash.com/photo-1518676590629-3dcbd9c5a5c9?w=500', category: 'movies' },
+    { id: 'mov2', title: 'Action & Superheroes', subtitle: 'Marvel, DC, explosions', image: 'https://images.unsplash.com/photo-1612036782180-6f0b6cd846fe?w=500', category: 'movies' },
     { id: 'mov3', title: 'Comedy & Rom-Com', subtitle: 'Laughs and love stories', image: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=500', category: 'movies' },
-    { id: 'mov4', title: 'Horror & Thriller', subtitle: 'Jump scares & suspense', image: 'https://images.unsplash.com/photo-1509248961725-9d3c21cb8e26?w=500', category: 'movies' },
-    { id: 'mov5', title: 'Drama & Indie', subtitle: 'Deep stories & emotions', image: 'https://images.unsplash.com/photo-1440404653325-ab127d49abc1?w=500', category: 'movies' },
+    { id: 'mov4', title: 'Horror & Thriller', subtitle: 'Jump scares & suspense', image: 'https://images.unsplash.com/photo-1626814026160-2237a95fc5a0?w=500', category: 'movies' },
+    { id: 'mov5', title: 'Drama & Indie', subtitle: 'Deep stories & emotions', image: 'https://images.unsplash.com/photo-1485846234645-a62644f84728?w=500', category: 'movies' },
   ],
   food: [
     { id: 'food1', title: 'Italian', subtitle: 'Pasta, Pizza, Risotto', image: 'https://images.unsplash.com/photo-1498579150354-977475b7ea0b?w=500', category: 'food' },

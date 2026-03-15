@@ -80,19 +80,37 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
   }, [profile]);
 
   const handleContentResult = useCallback((result: ContentSubmitResult & { url?: string }) => {
-    // Remove processing item from history (it's now in saved posts)
-    setHistory(prev => prev.filter(item => item.status !== 'processing' || item.url !== result.url));
-    
-    // If successful, refresh saved posts from API
     if (result.ok) {
-      // Re-fetch saved posts to include the new one
+      // Success - refresh saved posts and clear matching processing items
       getSavedPosts(POSTS_PER_PAGE, 0).then(postsResult => {
         if (postsResult.success && postsResult.data) {
           setSavedPosts(postsResult.data.posts);
           setSavedPostsTotal(postsResult.data.total);
           setSavedPostsOffset(0);
+          
+          // Clear processing items that now exist in saved posts (compare by URL substring)
+          const savedUrls = postsResult.data.posts.map(p => p.post_url);
+          setHistory(prev => prev.filter(item => {
+            if (item.status !== 'processing') return true;
+            // Check if this processing URL is now in saved posts
+            return !savedUrls.some(savedUrl => 
+              item.url.includes(savedUrl) || savedUrl.includes(item.url) ||
+              // Also check by ID in URL (instagram reel ID, tiktok video ID)
+              extractUrlId(item.url) === extractUrlId(savedUrl)
+            );
+          }));
         }
       });
+    } else {
+      // Error - mark item as failed if we can match the URL
+      if (result.url) {
+        setHistory(prev => prev.map(item => {
+          if (item.status === 'processing' && item.url.includes(result.url!)) {
+            return { ...item, status: 'error', error: result.error };
+          }
+          return item;
+        }));
+      }
     }
   }, []);
 
@@ -256,6 +274,23 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
       return domain;
     } catch {
       return 'Link';
+    }
+  };
+
+  // Extract content ID from URL for comparison
+  const extractUrlId = (url: string): string => {
+    try {
+      // Instagram: /reel/ABC123/ or /p/ABC123/
+      const instaMatch = url.match(/\/(reel|p)\/([A-Za-z0-9_-]+)/);
+      if (instaMatch) return instaMatch[2];
+      
+      // TikTok: /video/1234567890
+      const tiktokMatch = url.match(/\/video\/(\d+)/);
+      if (tiktokMatch) return tiktokMatch[1];
+      
+      return url;
+    } catch {
+      return url;
     }
   };
 

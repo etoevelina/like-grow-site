@@ -146,6 +146,7 @@ export default function DashboardPage() {
   const [shopItems, setShopItems] = useState<ShopItem[]>([]);
   const [shopLoading, setShopLoading] = useState(false);
   const [purchasingId, setPurchasingId] = useState<number | null>(null);
+  const [purchaseToast, setPurchaseToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   
   // New user flow
   const [isNewUser, setIsNewUser] = useState(false);
@@ -240,6 +241,11 @@ export default function DashboardPage() {
     loadShopItems();
   }, [showShop]);
 
+  const showToast = (message: string, type: 'success' | 'error') => {
+    setPurchaseToast({ message, type });
+    setTimeout(() => setPurchaseToast(null), 3000);
+  };
+
   // Handle purchase
   const handlePurchase = async (item: ShopItem) => {
     if (!avatar || avatar.coins < item.cost) return;
@@ -248,13 +254,17 @@ export default function DashboardPage() {
     const result = await purchaseItem(item.id);
     setPurchasingId(null);
     
-    if (result.success && result.avatar) {
-      // Update avatar with full response object from server
-      setAvatar(result.avatar);
-      // Show success message
-      alert(`Successfully purchased: ${result.item?.name || 'item'}`);
+    if (result.success) {
+      // Show success immediately - don't wait for avatar generation
+      showToast(`Purchased: ${item.name}!`, 'success');
+      // Optimistically deduct coins right away
+      setAvatar(prev => prev ? { ...prev, coins: prev.coins - item.cost } : prev);
+      // Update full avatar in background when server responds with generated image
+      if (result.avatar) {
+        setAvatar(result.avatar);
+      }
     } else {
-      alert(result.error || 'Purchase failed');
+      showToast(result.error || 'Purchase failed', 'error');
     }
   };
 
@@ -678,6 +688,17 @@ export default function DashboardPage() {
           </button>
         </div>
       </nav>
+
+      {/* Purchase Toast */}
+      {purchaseToast && (
+        <div className={`fixed bottom-24 left-1/2 -translate-x-1/2 z-50 px-5 py-3 rounded-2xl text-sm font-medium shadow-lg transition-all animate-in fade-in slide-in-from-bottom-4 ${
+          purchaseToast.type === 'success'
+            ? 'bg-green-500 text-white'
+            : 'bg-destructive text-destructive-foreground'
+        }`}>
+          {purchaseToast.message}
+        </div>
+      )}
 
       {/* Shop Sheet */}
       <Sheet open={showShop} onOpenChange={setShowShop}>

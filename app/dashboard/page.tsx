@@ -1,5 +1,5 @@
 'use client';
-// Dashboard v8 - limit sheet
+// Dashboard v9 - JSX fix
 
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -385,15 +385,18 @@ export default function DashboardPage() {
 
     // Check today's count from server before submitting
     const countResult = await getTodayPostCount();
+    console.log('[v0] getTodayPostCount result:', countResult);
     const currentCount = countResult.success && countResult.count !== undefined ? countResult.count : todayPostCount;
+    console.log('[v0] currentCount:', currentCount, 'MAX_DAILY_POSTS:', MAX_DAILY_POSTS);
     setTodayPostCount(currentCount);
 
     if (currentCount >= MAX_DAILY_POSTS) {
+      console.log('[v0] Limit reached, showing sheet');
       setShowLimitSheet(true);
       return;
     }
 
-        const url = postUrl.trim();
+    const url = postUrl.trim();
     setPostUrl('');
     
     setHistory(prev => [{ url, status: 'processing' }, ...prev]);

@@ -462,7 +462,7 @@ export default function DashboardPage() {
                   alt="Avatar"
                   className="w-full h-full object-cover"
                 />
-              ) : null}
+              ) : null)}
               
               {/* State badge */}
               <div className="absolute top-4 right-4 px-3 py-1 rounded-full bg-background/80 backdrop-blur-sm flex items-center gap-2">

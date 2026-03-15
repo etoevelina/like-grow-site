@@ -276,8 +276,6 @@ export default function DashboardPage() {
       }
     });
     
-    socketRef.current = socket;
-    
     return () => {
       socket.disconnect();
     };
@@ -292,9 +290,9 @@ export default function DashboardPage() {
     
     setHistory(prev => [{ url, status: 'processing' }, ...prev]);
     
-    // Try socket first
-    if (socketRef.current?.connected) {
-      socketRef.current.emit('submit_content', { url });
+    // Try socket first (from useSocket hook)
+    if (socket?.connected) {
+      socket.emit('submit_content', { url });
     } else {
       // Fallback to HTTP
       const result = await submitContent(url);

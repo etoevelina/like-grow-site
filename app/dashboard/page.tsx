@@ -494,18 +494,16 @@ export default function DashboardPage() {
               )}
             </>
           ) : (
-            <div className="w-full h-full bg-gradient-to-br from-primary/20 to-accent/20 flex flex-col items-center justify-center p-4">
-              {isAvatarCreating ? (
-                <>
-                  <div className="w-12 h-12 border-4 border-primary/30 border-t-primary rounded-full animate-spin mb-4" />
-                  <p className="text-xs text-muted-foreground text-center">Creating...</p>
-                </>
-              ) : (
-                <>
-                  <Sparkles className="w-16 h-16 text-primary/50 mb-4" />
-                  <p className="text-xs text-muted-foreground text-center">Feed content to see your avatar</p>
-                </>
-              )}
+            <div className="w-full h-full bg-black/80 flex flex-col items-center justify-center p-4">
+              <video
+                src="/videos/loading.mp4"
+                autoPlay
+                loop
+                muted
+                playsInline
+                className="w-24 h-24 object-contain"
+              />
+              <p className="text-sm text-white/80 mt-4 font-medium">Generating...</p>
             </div>
           )}
         </motion.div>

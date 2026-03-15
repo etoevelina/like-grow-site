@@ -149,6 +149,7 @@ export default function DashboardPage() {
   const [purchaseToast, setPurchaseToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingMessage, setGeneratingMessage] = useState('Generating...');
+  const [purchaseSuccess, setPurchaseSuccess] = useState<{ itemName: string; show: boolean }>({ itemName: '', show: false });
   
   // New user flow
   const [isNewUser, setIsNewUser] = useState(false);
@@ -270,6 +271,9 @@ export default function DashboardPage() {
     
     if (result.success) {
       showToast(`Purchased: ${item.name}!`, 'success');
+      setPurchaseSuccess({ itemName: item.name, show: true });
+      // Auto-hide success after 2 seconds
+      setTimeout(() => setPurchaseSuccess({ itemName: '', show: false }), 2000);
       // Update full avatar when ready
       if (result.avatar) {
         setAvatar(result.avatar);
@@ -441,7 +445,7 @@ export default function DashboardPage() {
           {avatarReady ? (
             <>
               {/* Generating overlay with video */}
-              {isGenerating && (
+              {isGenerating && !purchaseSuccess.show && (
                 <div className="absolute inset-0 bg-black flex flex-col items-center justify-center z-10 rounded-3xl">
                   <video
                     src="/videos/loading.mp4"
@@ -452,6 +456,17 @@ export default function DashboardPage() {
                     className="w-72 h-72 object-contain"
                   />
                   <p className="text-white text-xl mt-8 font-medium">{generatingMessage}</p>
+                </div>
+              )}
+              
+              {/* Success overlay */}
+              {purchaseSuccess.show && (
+                <div className="absolute inset-0 bg-black flex flex-col items-center justify-center z-10 rounded-3xl">
+                  <div className="flex items-center justify-center w-24 h-24 bg-green-500/20 rounded-full mb-6">
+                    <CheckCircle2 className="w-16 h-16 text-green-500" />
+                  </div>
+                  <p className="text-white text-2xl font-bold">Success!</p>
+                  <p className="text-white/70 text-lg mt-2">Equipped: {purchaseSuccess.itemName}</p>
                 </div>
               )}
               

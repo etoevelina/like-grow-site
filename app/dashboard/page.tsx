@@ -25,6 +25,7 @@ import {
 import { 
   Sheet,
   SheetContent,
+  SheetDescription,
   SheetHeader,
   SheetTitle,
 } from '@/components/ui/sheet';
@@ -647,6 +648,7 @@ export default function DashboardPage() {
               <ShoppingBag className="w-5 h-5" />
               Shop
             </SheetTitle>
+            <SheetDescription>Spend coins on accessories and items for your avatar</SheetDescription>
           </SheetHeader>
           <div className="py-6 text-center text-muted-foreground">
             <p>Shop coming soon!</p>

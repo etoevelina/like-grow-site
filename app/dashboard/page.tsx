@@ -433,16 +433,16 @@ export default function DashboardPage() {
             <>
               {/* Generating overlay with video */}
               {isGenerating && (
-                <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-10 rounded-3xl">
+                <div className="absolute inset-0 bg-black flex flex-col items-center justify-center z-10 rounded-3xl">
                   <video
                     src="/videos/loading.mp4"
                     autoPlay
                     loop
                     muted
                     playsInline
-                    className="w-24 h-24 object-contain"
+                    className="w-48 h-48 object-contain"
                   />
-                  <p className="text-white text-sm mt-4 font-medium">Generating...</p>
+                  <p className="text-white text-lg mt-6 font-medium">Generating...</p>
                 </div>
               )}
               
@@ -487,16 +487,16 @@ export default function DashboardPage() {
               )}
             </>
           ) : (
-            <div className="w-full h-full bg-black/80 flex flex-col items-center justify-center p-4">
+            <div className="w-full h-full bg-black flex flex-col items-center justify-center p-4">
               <video
                 src="/videos/loading.mp4"
                 autoPlay
                 loop
                 muted
                 playsInline
-                className="w-24 h-24 object-contain"
+                className="w-48 h-48 object-contain"
               />
-              <p className="text-sm text-white/80 mt-4 font-medium">Generating...</p>
+              <p className="text-lg text-white mt-6 font-medium">Generating...</p>
             </div>
           )}
         </motion.div>

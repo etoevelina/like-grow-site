@@ -12,23 +12,34 @@ interface WelcomeScreenProps {
 
 export function WelcomeScreen({ onStart, onLogin }: WelcomeScreenProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
-  const [videoLoaded, setVideoLoaded] = useState(false);
 
   // Autoplay video with sound, fallback to muted if blocked
   useEffect(() => {
     const video = videoRef.current;
-    if (!video || !videoLoaded) return;
+    if (!video) return;
 
-    // Try to play with sound first
-    video.muted = false;
-    video.play().catch(() => {
-      // Autoplay with sound blocked - try muted
-      video.muted = true;
+    const tryPlay = () => {
+      // Try to play with sound first
+      video.muted = false;
       video.play().catch(() => {
-        // Even muted autoplay blocked - do nothing
+        // Autoplay with sound blocked - try muted
+        video.muted = true;
+        video.play().catch(() => {
+          // Even muted autoplay blocked - do nothing
+        });
       });
-    });
-  }, [videoLoaded]);
+    };
+
+    // Try immediately
+    tryPlay();
+
+    // Also try on canplay event
+    video.addEventListener('canplay', tryPlay, { once: true });
+    
+    return () => {
+      video.removeEventListener('canplay', tryPlay);
+    };
+  }, []);
 
   return (
     <motion.div
@@ -73,7 +84,6 @@ export function WelcomeScreen({ onStart, onLogin }: WelcomeScreenProps) {
             playsInline
             loop
             preload="auto"
-            onLoadedData={() => setVideoLoaded(true)}
           >
             <source src="/videos/intro-logo.mp4" type="video/mp4" />
           </video>

@@ -13,26 +13,15 @@ interface WelcomeScreenProps {
 export function WelcomeScreen({ onStart, onLogin }: WelcomeScreenProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoLoaded, setVideoLoaded] = useState(false);
-  const [isPlaying, setIsPlaying] = useState(false);
 
-  // Preload video on mount
+  // Autoplay video on mount
   useEffect(() => {
     if (videoRef.current) {
-      videoRef.current.load();
+      videoRef.current.play().catch(() => {
+        // Autoplay blocked - will show poster
+      });
     }
-  }, []);
-
-  const handleVideoClick = () => {
-    if (videoRef.current) {
-      if (isPlaying) {
-        videoRef.current.pause();
-        setIsPlaying(false);
-      } else {
-        videoRef.current.play();
-        setIsPlaying(true);
-      }
-    }
-  };
+  }, [videoLoaded]);
 
   return (
     <motion.div
@@ -65,8 +54,7 @@ export function WelcomeScreen({ onStart, onLogin }: WelcomeScreenProps) {
         initial={{ scale: 0.8, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ delay: 0.3, type: 'spring', stiffness: 150 }}
-        className="relative mb-12 cursor-pointer w-full flex justify-center overflow-hidden"
-        onClick={handleVideoClick}
+        className="relative mb-12 w-full flex justify-center overflow-hidden"
       >
         {/* Video container - 80% of screen width, max 400px */}
         <div className="relative w-[80vw] max-w-[400px] bg-background">
@@ -79,41 +67,21 @@ export function WelcomeScreen({ onStart, onLogin }: WelcomeScreenProps) {
             />
           )}
           
-          {/* Video - natural aspect ratio */}
+          {/* Video - autoplay, muted for browser autoplay policy, loops */}
           <video
             ref={videoRef}
             className="w-full h-auto"
             poster="/images/intro-poster.png"
             playsInline
             loop
+            muted
+            autoPlay
             preload="auto"
             onLoadedData={() => setVideoLoaded(true)}
-            onEnded={() => setIsPlaying(false)}
           >
             <source src="/videos/intro-logo.mp4" type="video/mp4" />
           </video>
-
-          {/* Play indicator */}
-          {!isPlaying && videoLoaded && (
-            <div className="absolute inset-0 flex items-center justify-center bg-background/20">
-              <div className="w-12 h-12 rounded-full bg-background/80 flex items-center justify-center">
-                <div className="w-0 h-0 border-t-[8px] border-t-transparent border-l-[14px] border-l-foreground border-b-[8px] border-b-transparent ml-1" />
-              </div>
-            </div>
-          )}
         </div>
-
-        {/* Tap to play hint */}
-        {!isPlaying && (
-          <motion.p
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.5 }}
-            className="text-center text-xs text-muted-foreground mt-3"
-          >
-            Tap to play with sound
-          </motion.p>
-        )}
       </motion.div>
 
       {/* Features list */}

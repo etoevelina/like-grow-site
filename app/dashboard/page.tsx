@@ -328,8 +328,12 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary/20 flex items-center justify-center">
-                    <Sparkles className="w-5 h-5 text-primary" />
+                  <div className="w-10 h-10 rounded-full overflow-hidden">
+                    <img 
+                      src="/images/likegrow-logo.png" 
+                      alt="LikeGrow" 
+                      className="w-full h-full object-cover"
+                    />
                   </div>
                   <div>
                     <h1 className="font-semibold text-foreground">LikeGrow</h1>

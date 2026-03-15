@@ -14,13 +14,20 @@ export function WelcomeScreen({ onStart, onLogin }: WelcomeScreenProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [videoLoaded, setVideoLoaded] = useState(false);
 
-  // Autoplay video on mount
+  // Autoplay video with sound, fallback to muted if blocked
   useEffect(() => {
-    if (videoRef.current) {
-      videoRef.current.play().catch(() => {
-        // Autoplay blocked - will show poster
+    const video = videoRef.current;
+    if (!video || !videoLoaded) return;
+
+    // Try to play with sound first
+    video.muted = false;
+    video.play().catch(() => {
+      // Autoplay with sound blocked - try muted
+      video.muted = true;
+      video.play().catch(() => {
+        // Even muted autoplay blocked - do nothing
       });
-    }
+    });
   }, [videoLoaded]);
 
   return (
@@ -67,15 +74,13 @@ export function WelcomeScreen({ onStart, onLogin }: WelcomeScreenProps) {
             />
           )}
           
-          {/* Video - autoplay, muted for browser autoplay policy, loops */}
+          {/* Video - tries to autoplay with sound, falls back to muted */}
           <video
             ref={videoRef}
             className="w-full h-auto"
             poster="/images/intro-poster.png"
             playsInline
             loop
-            muted
-            autoPlay
             preload="auto"
             onLoadedData={() => setVideoLoaded(true)}
           >

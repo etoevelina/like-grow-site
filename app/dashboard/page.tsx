@@ -323,15 +323,8 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
     <div className="min-h-screen bg-background flex flex-col">
       {/* Main Content Area */}
       <main className="flex-1 pb-20 overflow-y-auto">
-        <AnimatePresence mode="wait">
-          {activeTab === 'home' && (
-            <motion.div
-              key="home"
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -20 }}
-              className="max-w-md mx-auto px-4 py-6"
-            >
+        {/* Home Tab - always rendered to keep video in DOM */}
+        <div className={`max-w-md mx-auto px-4 py-6 ${activeTab !== 'home' ? 'hidden' : ''}`}>
               {/* Header */}
               <div className="flex items-center justify-between mb-6">
                 <div className="flex items-center gap-3">
@@ -473,20 +466,7 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                       </>
                     )}
 
-                    {/* Magic glow effect when opening */}
-                    <AnimatePresence>
-                      {isNewUser && shutterOpen && (
-                        <motion.div
-                          initial={{ opacity: 1 }}
-                          animate={{ opacity: 0 }}
-                          transition={{ duration: 1.5, delay: 0.3 }}
-                          className="absolute inset-0 z-10 pointer-events-none"
-                          style={{
-                            background: 'radial-gradient(circle, oklch(0.8 0.2 60) 0%, transparent 70%)',
-                          }}
-                        />
-                      )}
-                    </AnimatePresence>
+                    
                   </div>
 
                   {/* Corner decorations */}
@@ -701,16 +681,10 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                 </div>
               </motion.div>
             </motion.div>
-          )}
+        </div>
 
-          {activeTab === 'feed' && (
-            <motion.div
-              key="feed"
-              initial={{ opacity: 0, x: 20 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: 20 }}
-              className="max-w-md mx-auto px-4 py-6"
-            >
+        {/* Feed Tab */}
+        <div className={`max-w-md mx-auto px-4 py-6 ${activeTab !== 'feed' ? 'hidden' : ''}`}>
               {/* Feed Header */}
               <div className="mb-6">
                 <h1 className="text-2xl font-bold text-foreground mb-1">Activity History</h1>
@@ -823,9 +797,7 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                   </div>
                 )}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        </div>
       </main>
 
       {/* Bottom Tab Bar */}

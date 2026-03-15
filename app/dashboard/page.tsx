@@ -147,6 +147,7 @@ export default function DashboardPage() {
   const [shopLoading, setShopLoading] = useState(false);
   const [purchasingId, setPurchasingId] = useState<number | null>(null);
   const [purchaseToast, setPurchaseToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   
   // New user flow
   const [isNewUser, setIsNewUser] = useState(false);
@@ -168,11 +169,13 @@ export default function DashboardPage() {
       
       if (avatarCreatingFlag) {
         setIsAvatarCreating(true);
+        setIsGenerating(true);
       }
       
       if (params.get('new') === 'true') {
         setIsNewUser(true);
         setIsAvatarCreating(true);
+        setIsGenerating(true);
         window.history.replaceState({}, '', '/dashboard');
       }
       
@@ -217,8 +220,9 @@ export default function DashboardPage() {
         setProfile(result.data.profile);
         
         if (hasContent) {
-          setIsAvatarCreating(false);
-          localStorage.removeItem('avatar_creating');
+      setIsAvatarCreating(false);
+      setIsGenerating(false);
+      localStorage.removeItem('avatar_creating');
         }
       }
     }, 3000);
@@ -251,21 +255,23 @@ export default function DashboardPage() {
     if (!avatar || avatar.coins < item.cost) return;
     
     setPurchasingId(item.id);
+    setIsGenerating(true);
     const result = await purchaseItem(item.id);
     setPurchasingId(null);
     
     if (result.success) {
-      // Show success immediately - don't wait for avatar generation
+      // Show success immediately
       showToast(`Purchased: ${item.name}!`, 'success');
       // Optimistically deduct coins right away
       setAvatar(prev => prev ? { ...prev, coins: prev.coins - item.cost } : prev);
-      // Update full avatar in background when server responds with generated image
+      // Update full avatar when ready (loading video shown meanwhile)
       if (result.avatar) {
         setAvatar(result.avatar);
       }
     } else {
       showToast(result.error || 'Purchase failed', 'error');
     }
+    setIsGenerating(false);
   };
 
   // Load saved posts
@@ -425,7 +431,22 @@ export default function DashboardPage() {
         >
           {avatarReady ? (
             <>
-              {avatar?.current_video_url ? (
+              {/* Generating overlay with video */}
+              {isGenerating && (
+                <div className="absolute inset-0 bg-black/80 flex flex-col items-center justify-center z-10 rounded-3xl">
+                  <video
+                    src="/videos/loading.mp4"
+                    autoPlay
+                    loop
+                    muted
+                    playsInline
+                    className="w-24 h-24 object-contain"
+                  />
+                  <p className="text-white text-sm mt-4 font-medium">Generating...</p>
+                </div>
+              )}
+              
+              {/* Avatar display */}
                 <video
                   src={avatar.current_video_url}
                   autoPlay

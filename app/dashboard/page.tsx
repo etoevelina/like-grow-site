@@ -150,6 +150,7 @@ export default function DashboardPage() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingMessage, setGeneratingMessage] = useState('Generating...');
   const [purchaseSuccess, setPurchaseSuccess] = useState<{ itemName: string; show: boolean }>({ itemName: '', show: false });
+  const [pendingPostUrls, setPendingPostUrls] = useState<string[]>([]); // Track pending posts in order
   
   // New user flow
   const [isNewUser, setIsNewUser] = useState(false);
@@ -331,27 +332,25 @@ export default function DashboardPage() {
     // Result handler
     socket.on('content_submit_result', (data: ContentSubmitResponse) => {
       console.log('[v0] content_submit_result received:', data);
+      
+      // Get the URL that was submitted (first in pending queue)
+      const submittedUrl = pendingPostUrls[0];
+      if (submittedUrl) {
+        // Remove from pending queue
+        setPendingPostUrls(prev => prev.slice(1));
+        console.log('[v0] Processing result for URL:', submittedUrl, 'remaining pending:', pendingPostUrls.length - 1);
+      }
+      
       if (data.ok && data.avatar) {
-        console.log('[v0] Post success, updating avatar and count');
+        console.log('[v0] Post success, updating avatar and history');
         setAvatar(data.avatar);
         
-        // Update history - find first processing item
-        setHistory(prev => {
-          const updatedHistory = [...prev];
-          for (let i = 0; i < updatedHistory.length; i++) {
-            if (updatedHistory[i].status === 'processing') {
-              console.log('[v0] Updating history item', i, 'to success');
-              updatedHistory[i] = {
-                ...updatedHistory[i],
-                status: 'success' as const,
-                xp: data.xp,
-                coins: data.coins
-              };
-              break;
-            }
-          }
-          return updatedHistory;
-        });
+        // Update history - find the post by URL
+        setHistory(prev => prev.map(h => 
+          h.url === submittedUrl && h.status === 'processing'
+            ? { ...h, status: 'success' as const, xp: data.xp, coins: data.coins }
+            : h
+        ));
         
         // Update post count
         setTodayPostCount(prev => {
@@ -365,18 +364,12 @@ export default function DashboardPage() {
         });
       } else {
         console.log('[v0] Post error or invalid response:', data);
-        // Handle error - mark first processing as error
-        setHistory(prev => {
-          const updatedHistory = [...prev];
-          for (let i = 0; i < updatedHistory.length; i++) {
-            if (updatedHistory[i].status === 'processing') {
-              console.log('[v0] Updating history item', i, 'to error');
-              updatedHistory[i] = { ...updatedHistory[i], status: 'error' };
-              break;
-            }
-          }
-          return updatedHistory;
-        });
+        // Handle error - mark post as error
+        setHistory(prev => prev.map(h =>
+          h.url === submittedUrl && h.status === 'processing'
+            ? { ...h, status: 'error' }
+            : h
+        ));
       }
     });
     
@@ -398,9 +391,11 @@ export default function DashboardPage() {
     setPostUrl('');
     
     setHistory(prev => [{ url, status: 'processing' }, ...prev]);
+    setPendingPostUrls(prev => [...prev, url]); // Add to pending queue
     
     // Try socket first (from useSocket hook)
     if (socket?.connected) {
+      console.log('[v0] Sending post via socket:', url);
       socket.emit('submit_post', { url });
     } else {
       // Fallback to HTTP

@@ -64,7 +64,7 @@ export function WelcomeScreen({ onStart, onLogin }: WelcomeScreenProps) {
         transition={{ delay: 0.2 }}
         className="text-muted-foreground text-center mb-10 max-w-xs leading-relaxed"
       >
-        Discover your digital self through a quick interactive quiz
+        Create your AI twin from your taste. A short quiz to start—then feed it with what you save and watch it grow.
       </motion.p>
 
       {/* Video Preview - large size, overflow hidden beyond screen */}
@@ -122,20 +122,10 @@ export function WelcomeScreen({ onStart, onLogin }: WelcomeScreenProps) {
           onClick={onStart}
           className="w-full py-6 rounded-2xl bg-primary text-primary-foreground font-semibold text-lg group"
         >
-          Start Quiz
+          Create my twin
           <ArrowRight className="w-5 h-5 ml-2 transition-transform group-hover:translate-x-1" />
         </Button>
       </motion.div>
-
-      {/* Time estimate */}
-      <motion.p
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ delay: 0.7 }}
-        className="text-muted-foreground text-xs mt-4"
-      >
-        Takes about 2 minutes
-      </motion.p>
 
       {/* Already have account */}
       <motion.button

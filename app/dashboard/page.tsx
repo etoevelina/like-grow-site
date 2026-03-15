@@ -67,6 +67,9 @@ export default function DashboardPage() {
   const MAX_DAILY_POSTS = 50;
   const [todayPostCount, setTodayPostCount] = useState(0);
 
+  // LikePost sync sheet for limit reached
+  const [showLikePostSheet, setShowLikePostSheet] = useState(false);
+
   // Check if avatar is ready (has actual content)
   const avatarReady = !!(avatar?.current_video_url || avatar?.current_image_url);
 
@@ -118,10 +121,12 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
 
   useEffect(() => {
     setMounted(true);
-    // Check if new user from URL param
     if (typeof window !== 'undefined') {
       const params = new URLSearchParams(window.location.search);
-      if (params.get('new') === 'true') {
+      const hasCompletedOnboarding = localStorage.getItem('onboarding_complete') === 'true';
+      
+      // Check if new user from URL param AND hasn't completed onboarding before
+      if (params.get('new') === 'true' && !hasCompletedOnboarding) {
         setIsNewUser(true);
         setShowShopPrompt(true);
         // Clean URL
@@ -173,6 +178,8 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
     setShutterOpen(true);
     setShowShopPrompt(false);
     localStorage.removeItem('avatar_creating');
+    // Mark onboarding as complete so it doesn't show again
+    localStorage.setItem('onboarding_complete', 'true');
   };
 
   // Poll for avatar readiness for new users
@@ -220,7 +227,10 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
 
   const handleSubmitPost = async () => {
     if (!postUrl.trim()) return;
-    if (todayPostCount >= MAX_DAILY_POSTS) return;
+    if (todayPostCount >= MAX_DAILY_POSTS) {
+      setShowLikePostSheet(true);
+      return;
+    }
 
     const newItem: HistoryItem = {
       id: Date.now().toString(),
@@ -863,6 +873,73 @@ const handleAvatarUpdate = useCallback((updatedAvatar: Avatar) => {
                 You have {avatar?.coins || 0} coins to spend
               </p>
             </div>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* LikePost Sync Sheet - shown when daily limit is reached */}
+      <Sheet open={showLikePostSheet} onOpenChange={setShowLikePostSheet}>
+        <SheetContent side="bottom" className="rounded-t-3xl">
+          <div className="flex flex-col items-center text-center py-8 px-4">
+            {/* LikePost Logo */}
+            <motion.div
+              initial={{ scale: 0.8, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              transition={{ duration: 0.3 }}
+              className="mb-6"
+            >
+              <img 
+                src="/images/likepost-logo.gif" 
+                alt="LikePost" 
+                className="w-24 h-24 object-contain"
+              />
+            </motion.div>
+
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.1 }}
+            >
+              <h3 className="text-xl font-bold text-foreground mb-2">
+                Daily Limit Reached
+              </h3>
+              <p className="text-muted-foreground mb-6 max-w-xs">
+                You've used all {MAX_DAILY_POSTS} posts for today. Connect with LikePost to unlock unlimited content sharing!
+              </p>
+            </motion.div>
+
+            <motion.div
+              initial={{ y: 20, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              transition={{ delay: 0.2 }}
+              className="w-full space-y-3"
+            >
+              <Button 
+                className="w-full h-12 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white font-semibold"
+                onClick={() => {
+                  // TODO: Implement LikePost sync
+                  window.open('https://likepost.app', '_blank');
+                }}
+              >
+                Sync with LikePost
+              </Button>
+              <Button 
+                variant="ghost" 
+                className="w-full"
+                onClick={() => setShowLikePostSheet(false)}
+              >
+                Maybe later
+              </Button>
+            </motion.div>
+
+            <motion.p
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ delay: 0.3 }}
+              className="text-xs text-muted-foreground mt-6"
+            >
+              Come back tomorrow for {MAX_DAILY_POSTS} more posts
+            </motion.p>
           </div>
         </SheetContent>
       </Sheet>

@@ -37,11 +37,26 @@ import { AuthScreen } from './auth-screen';
 import { AvatarCreation } from '../avatar/avatar-creation';
 import { AvatarWindow } from '../avatar/avatar-window';
 import { Avatar, AvatarProfile } from '@/lib/avatar-api';
+import { useAuth } from '@/hooks/use-auth';
 
 type QuizPhase = 'welcome' | 'categories' | 'humor' | 'music' | 'questions' | 'magic' | 'auth' | 'login' | 'creating' | 'reveal';
 
 export function Quiz() {
+  const { user, loading } = useAuth();
   const [currentPhase, setCurrentPhase] = useState<QuizPhase>('welcome');
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  // Check if user is already logged in - redirect to dashboard
+  useEffect(() => {
+    if (!loading) {
+      if (user) {
+        // User is already logged in, redirect to dashboard
+        window.location.href = '/dashboard';
+      } else {
+        setCheckingAuth(false);
+      }
+    }
+  }, [user, loading]);
   const [questionIndex, setQuestionIndex] = useState(0);
   const [mixedQuestions, setMixedQuestions] = useState<MixedQuestion[]>([]);
   
@@ -373,6 +388,15 @@ export function Quiz() {
         return null;
     }
   };
+
+  // Show loading while checking auth
+  if (loading || checkingAuth) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background relative">

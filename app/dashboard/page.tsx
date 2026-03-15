@@ -63,8 +63,8 @@ export default function DashboardPage() {
   const [shutterOpen, setShutterOpen] = useState(false);
   const [showShopPrompt, setShowShopPrompt] = useState(false);
 
-  // Daily post limit
-  const MAX_DAILY_POSTS = 5;
+  // Daily post limit (temporarily set to 50 for testing)
+  const MAX_DAILY_POSTS = 50;
   const [todayPostCount, setTodayPostCount] = useState(0);
 
   // Check if avatar is ready (has actual content)

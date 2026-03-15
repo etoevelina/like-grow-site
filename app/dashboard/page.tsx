@@ -128,9 +128,9 @@ export default function DashboardPage() {
   const [savedPosts, setSavedPosts] = useState<SavedPost[]>([]);
   const [savedPostsTotal, setSavedPostsTotal] = useState(0);
   
-  // Socket
+  // Socket (optional - HTTP fallback is available)
   const socketRef = useRef<Socket | null>(null);
-  const [isConnected, setIsConnected] = useState(false);
+  const [isConnected, setIsConnected] = useState(true); // Default true - HTTP works without WebSocket
   
   // UI state
   const [activeTab, setActiveTab] = useState<'home' | 'feed'>('home');
@@ -528,7 +528,7 @@ export default function DashboardPage() {
             />
             <Button
               onClick={handleSubmitPost}
-              disabled={!postUrl.trim() || !isConnected || (!avatarReady && isNewUser) || avatarLoading || todayPostCount >= MAX_DAILY_POSTS}
+              disabled={!postUrl.trim() || (!avatarReady && isNewUser) || avatarLoading || todayPostCount >= MAX_DAILY_POSTS}
               size="sm"
               className="rounded-xl bg-primary text-primary-foreground px-4"
             >
@@ -536,9 +536,7 @@ export default function DashboardPage() {
             </Button>
           </div>
           
-          {!isConnected && avatarReady && (
-            <p className="text-xs text-destructive mt-2">Connecting...</p>
-          )}
+          
           {todayPostCount >= MAX_DAILY_POSTS && (
             <p className="text-xs text-muted-foreground mt-2">Come back tomorrow for more!</p>
           )}

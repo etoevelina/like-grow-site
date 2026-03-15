@@ -274,13 +274,6 @@ export default function DashboardPage() {
     setIsGenerating(false);
   };
 
-  // Auto-redirect to Home if on Feed but avatar not ready
-  useEffect(() => {
-    if (activeTab === 'feed' && !avatarReady) {
-      setActiveTab('home');
-    }
-  }, [avatarReady, activeTab]);
-
   // Load saved posts
   useEffect(() => {
     async function loadPosts() {
@@ -630,7 +623,7 @@ export default function DashboardPage() {
             />
             <Button
               onClick={handleSubmitPost}
-              disabled={!postUrl.trim() || (!avatarReady && isNewUser) || avatarLoading || todayPostCount >= MAX_DAILY_POSTS}
+              disabled={!postUrl.trim() || !avatarReady || avatarLoading || todayPostCount >= MAX_DAILY_POSTS}
               size="sm"
               className="rounded-xl bg-primary text-primary-foreground px-4"
             >
@@ -708,11 +701,8 @@ export default function DashboardPage() {
           </button>
           <button
             onClick={() => setActiveTab('feed')}
-            disabled={!avatarReady}
             className={`flex-1 py-4 flex flex-col items-center gap-1 transition-colors ${
-              !avatarReady 
-                ? 'opacity-50 cursor-not-allowed text-muted-foreground' 
-                : activeTab === 'feed' ? 'text-primary' : 'text-muted-foreground'
+              activeTab === 'feed' ? 'text-primary' : 'text-muted-foreground'
             }`}
           >
             <ListPlus className="w-5 h-5" />

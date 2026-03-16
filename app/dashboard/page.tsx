@@ -138,7 +138,8 @@ export default function DashboardPage() {
   
   // Socket: single connection, avatar updates + content submit results
   const handleAvatarUpdate = useCallback((updatedAvatar: AvatarType) => {
-    setAvatar(updatedAvatar);
+    if (!updatedAvatar) return;
+    setAvatar({ ...updatedAvatar });
     setIsBackgroundRegenerating(false);
   }, []);
 
@@ -329,40 +330,31 @@ export default function DashboardPage() {
     setTimeout(() => setPurchaseToast(null), 3000);
   };
 
-  // Handle purchase
-  const handlePurchase = async (item: ShopItem) => {
+  // Handle purchase: show Success + "Updating..." immediately; no full-screen sphere during wait
+  const handlePurchase = (item: ShopItem) => {
     if (!avatar || avatar.coins < item.cost) return;
-    
-    // Show immediate feedback - remove spinner, show toast, deduct coins optimistically
+
     setPurchasingId(item.id);
-    
-    // Optimistically update UI immediately
-    showToast(`Purchasing: ${item.name}...`, 'success');
-    setAvatar(prev => prev ? { ...prev, coins: prev.coins - item.cost } : prev);
-    setPurchasingId(null); // Remove button spinner immediately
-    setGeneratingMessage('Applying purchase...');
-    setIsGenerating(true); // Show generating overlay on avatar
-    
-    // Now wait for server response in background
-    const result = await purchaseItem(item.id);
-    
-    if (result.success) {
-      showToast(`Purchased: ${item.name}!`, 'success');
-      setPurchaseSuccess({ itemName: item.name, show: true });
-      setIsBackgroundRegenerating(true);
-      // Auto-hide success after 2 seconds
-      setTimeout(() => setPurchaseSuccess({ itemName: '', show: false }), 2000);
-      // Update full avatar when ready (backend may send updated avatar later via socket)
-      if (result.avatar) {
-        setAvatar(result.avatar as AvatarType);
-      }
-    } else {
-      // Refund coins on failure
-      showToast(result.error || 'Purchase failed', 'error');
-      setAvatar(prev => prev ? { ...prev, coins: prev.coins + item.cost } : prev);
-    }
-    setIsGenerating(false);
-    setGeneratingMessage('Creating your avatar...'); // Reset to default
+    showToast(`Purchased: ${item.name}!`, 'success');
+    setAvatar((prev) => (prev ? { ...prev, coins: prev.coins - item.cost } : prev));
+    setPurchasingId(null);
+    setShowShop(false);
+    setPurchaseSuccess({ itemName: item.name, show: true });
+    setIsBackgroundRegenerating(true);
+    setTimeout(() => setPurchaseSuccess({ itemName: '', show: false }), 2500);
+
+    purchaseItem(item.id)
+      .then((result) => {
+        if (result.success && result.avatar) {
+          setAvatar(result.avatar as AvatarType);
+        } else if (!result.success) {
+          showToast(result.error || 'Purchase failed', 'error');
+          setAvatar((prev) => (prev ? { ...prev, coins: prev.coins + item.cost } : prev));
+        }
+      })
+      .finally(() => {
+        setIsBackgroundRegenerating(false);
+      });
   };
 
   // Load saved posts on mount and when opening Feed tab (so we can clear stale "Processing" if socket event was lost)
@@ -389,56 +381,50 @@ export default function DashboardPage() {
     loadPosts();
   }, [user, activeTab]);
 
-  // Load today's post count from server
+  // Load today's post count on mount and when tab becomes visible (keeps limit in sync without blocking submit click)
   useEffect(() => {
-    async function loadTodayCount() {
-      const result = await getTodayPostCount();
-      if (result.success && result.count !== undefined) {
-        setTodayPostCount(result.count);
-      }
-    }
-    if (user) loadTodayCount();
+    if (!user) return;
+    const refresh = () => {
+      getTodayPostCount().then((result) => {
+        if (result.success && result.count !== undefined) setTodayPostCount(result.count);
+      });
+    };
+    refresh();
+    const onVisible = () => refresh();
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
   }, [user]);
 
-  // Submit post — check limit first: on 6th+ attempt show sheet; otherwise submit if URL present
-  const handleSubmitPost = useCallback(async () => {
-    let currentCount: number = todayPostCount;
-    try {
-      const countResult = await getTodayPostCount();
-      const serverCount = countResult.success && countResult.count !== undefined ? countResult.count : null;
-      if (serverCount !== null) {
-        setTodayPostCount(serverCount);
-        currentCount = serverCount;
-      }
-    } catch {
-      // use state as fallback so sheet still shows when at limit
-    }
-
-    if (currentCount >= MAX_DAILY_POSTS) {
+  // Submit post — use cached todayPostCount so UI doesn't block on network; server enforces limit
+  const handleSubmitPost = useCallback(() => {
+    if (todayPostCount >= MAX_DAILY_POSTS) {
       setShowLimitSheet(true);
       return;
     }
-
     if (!postUrl.trim()) return;
 
     const url = postUrl.trim();
     setPostUrl('');
-    
-    setHistory(prev => [{ url, status: 'processing' }, ...prev]);
+    setHistory((prev) => [{ url, status: 'processing' }, ...prev]);
     pendingPostUrlsRef.current = [...pendingPostUrlsRef.current, url];
 
     if (isConnected) {
       submitPost(url).catch(() => {});
-    } else {
-      const result = await submitContent(url);
+      return;
+    }
+
+    // HTTP fallback: don't await — update UI in .then() so click returns immediately
+    submitContent(url).then((result) => {
       if (result.success && result.data?.avatar) {
         setAvatar(result.data.avatar);
-        setHistory(prev => prev.map(h => 
-          h.url === url 
-            ? { ...h, status: 'success', xp: result.data?.xp, coins: result.data?.coins }
-            : h
-        ));
-        setTodayPostCount(prev => prev + 1);
+        setHistory((prev) =>
+          prev.map((h) =>
+            h.url === url
+              ? { ...h, status: 'success', xp: result.data?.xp, coins: result.data?.coins }
+              : h
+          )
+        );
+        setTodayPostCount((prev) => prev + 1);
         getSavedPosts(20, 0).then((res) => {
           if (res.success && res.data) {
             setSavedPosts(res.data.posts);
@@ -446,16 +432,16 @@ export default function DashboardPage() {
           }
         });
       } else {
-        setHistory(prev => prev.map(h => 
-          h.url === url ? { ...h, status: 'error' } : h
-        ));
+        setHistory((prev) =>
+          prev.map((h) => (h.url === url ? { ...h, status: 'error' } : h))
+        );
         const err = (result.error || '').toLowerCase();
         if (err.includes('limit') || err.includes('daily')) {
           setTodayPostCount(MAX_DAILY_POSTS);
           setShowLimitSheet(true);
         }
       }
-    }
+    });
   }, [postUrl, todayPostCount, isConnected, submitPost]);
 
   // Reveal avatar for new users
@@ -599,15 +585,22 @@ export default function DashboardPage() {
               >
                 {avatar?.current_video_url ? (
                   <video
+                    key={avatar.current_video_url}
                     src={avatar.current_video_url}
                     autoPlay
                     loop
                     muted
                     playsInline
                     className="w-full h-full object-cover"
+                    onEnded={(e) => {
+                      const v = e.currentTarget;
+                      v.currentTime = 0;
+                      v.play().catch(() => {});
+                    }}
                   />
                 ) : avatar?.current_image_url ? (
                   <img
+                    key={avatar.current_image_url}
                     src={avatar.current_image_url}
                     alt="Avatar"
                     className="w-full h-full object-cover"

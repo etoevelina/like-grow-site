@@ -115,6 +115,11 @@ const SavedPostItem = ({ post }: { post: SavedPost }) => (
   </motion.div>
 );
 
+function formatXp(value: number | undefined | null): string {
+  const n = Number(value ?? 0);
+  return n === Math.floor(n) ? String(Math.round(n)) : n.toFixed(2);
+}
+
 export default function DashboardPage() {
   const { user, loading: authLoading, logout } = useAuth();
   
@@ -678,7 +683,7 @@ export default function DashboardPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-3 gap-3 mb-6">
-          <motion.div className="glass-card rounded-2xl p-4 text-center">
+          <motion.div className="glass-tile rounded-2xl p-4 text-center">
             <div className="w-10 h-10 rounded-xl bg-primary/10 mx-auto mb-2 flex items-center justify-center">
               <Star className="w-5 h-5 text-primary" />
             </div>
@@ -686,15 +691,15 @@ export default function DashboardPage() {
             <p className="text-xs text-muted-foreground">Level</p>
           </motion.div>
           
-          <motion.div className="glass-card rounded-2xl p-4 text-center">
+          <motion.div className="glass-tile rounded-2xl p-4 text-center">
             <div className="w-10 h-10 rounded-xl bg-green-500/10 mx-auto mb-2 flex items-center justify-center">
               <Trophy className="w-5 h-5 text-green-500" />
             </div>
-            <p className="text-2xl font-bold text-foreground">{avatar?.experience || 0}</p>
+            <p className="text-2xl font-bold text-foreground">{formatXp(avatar?.experience)}</p>
             <p className="text-xs text-muted-foreground">XP</p>
           </motion.div>
           
-          <motion.div className="glass-card rounded-2xl p-4 text-center">
+          <motion.div className="glass-tile rounded-2xl p-4 text-center">
             <div className="w-10 h-10 rounded-xl bg-yellow-500/10 mx-auto mb-2 flex items-center justify-center">
               <Coins className="w-5 h-5 text-yellow-500" />
             </div>
@@ -732,7 +737,7 @@ export default function DashboardPage() {
             <div className="flex justify-between items-center mb-2">
               <span className="text-sm text-muted-foreground">{avatar.level_name}</span>
               <span className="text-xs text-muted-foreground">
-                {avatar.experience}/{avatar.exp_to_next_level + avatar.experience} XP
+                {formatXp(avatar.experience)}/{formatXp((avatar.exp_to_next_level ?? 0) + (avatar.experience ?? 0))} XP
               </span>
             </div>
             <div className="h-2 bg-muted rounded-full overflow-hidden">
@@ -1030,7 +1035,7 @@ export default function DashboardPage() {
                   return (
                     <div
                       key={item.id}
-                      className="glass-card rounded-2xl overflow-hidden border border-border"
+                      className="glass-tile rounded-2xl overflow-hidden"
                     >
                       {/* Item Image */}
                       <div className="aspect-square bg-muted/30 relative">

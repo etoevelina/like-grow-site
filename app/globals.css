@@ -162,6 +162,23 @@
     -webkit-backdrop-filter: blur(16px);
     border: 1px solid oklch(0.3 0.01 260 / 0.4);
   }
+
+  /* Glass tile: stat blocks + shop items — tinted frosted glass + thin fuchsia neon */
+  .glass-tile {
+    background: linear-gradient(
+      145deg,
+      oklch(0.22 0.04 300 / 0.55),
+      oklch(0.14 0.035 295 / 0.45)
+    );
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid oklch(0.4 0.06 300 / 0.35);
+    box-shadow:
+      inset 0 1px 0 0 oklch(0.95 0.02 300 / 0.12),
+      inset 0 -1px 0 0 oklch(0.1 0.03 300 / 0.2),
+      0 0 0 1px rgba(217, 70, 239, 0.28),
+      0 0 14px rgba(217, 70, 239, 0.08);
+  }
   
   .animate-float {
     animation: float 3s ease-in-out infinite;

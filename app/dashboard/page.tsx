@@ -790,37 +790,57 @@ export default function DashboardPage() {
           </motion.div>
         )}
 
-        {/* Feed Widget — no counter, no "limit reached" until user tries to send; then show sheet */}
-        <motion.div className="glass-card rounded-2xl p-4 mb-6">
-          <div className="flex items-center gap-2 mb-3">
-            <Link2 className="w-4 h-4 text-primary" />
-            <span className="text-sm font-medium text-foreground">Feed your avatar</span>
-          </div>
-          <div className="flex gap-2">
-            <input
-              type="text"
-              value={postUrl}
-              onChange={(e) => setPostUrl(e.target.value)}
-              placeholder="Paste TikTok or Instagram link..."
-              disabled={(!avatarReady && isNewUser) || avatarLoading}
-              className="flex-1 px-3 py-2 bg-input border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
-              onKeyDown={(e) => e.key === 'Enter' && handleSubmitPost()}
-            />
-            <Button
-              type="button"
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                handleSubmitPost();
-              }}
-              disabled={avatarLoading}
-              size="sm"
-              className="rounded-xl bg-primary text-primary-foreground px-4"
+        {/* Feed Widget — pulse + highlight when avatar ready but 0 posts yet */}
+        {(() => {
+          const showFirstPostHint = avatarReady && savedPostsTotal === 0;
+          return (
+            <motion.div
+              className={`glass-card rounded-2xl p-4 mb-6 ${showFirstPostHint ? 'ring-2 ring-primary/50' : ''}`}
+              animate={showFirstPostHint ? {
+                boxShadow: [
+                  '0 0 0 0 rgba(217, 70, 239, 0.15)',
+                  '0 0 24px 6px rgba(217, 70, 239, 0.25)',
+                  '0 0 0 0 rgba(217, 70, 239, 0.15)',
+                ],
+              } : {}}
+              transition={showFirstPostHint ? { duration: 2, repeat: Infinity, ease: 'easeInOut' } : {}}
             >
-              <Send className="w-4 h-4" />
-            </Button>
-          </div>
-        </motion.div>
+              {showFirstPostHint && (
+                <p className="text-sm font-medium text-primary mb-3 text-center">
+                  Start growing your avatar — paste your first link below
+                </p>
+              )}
+              <div className="flex items-center gap-2 mb-3">
+                <Link2 className="w-4 h-4 text-primary" />
+                <span className="text-sm font-medium text-foreground">Feed your avatar</span>
+              </div>
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={postUrl}
+                  onChange={(e) => setPostUrl(e.target.value)}
+                  placeholder="Paste TikTok or Instagram link..."
+                  disabled={(!avatarReady && isNewUser) || avatarLoading}
+                  className="flex-1 px-3 py-2 bg-input border border-border rounded-xl text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                  onKeyDown={(e) => e.key === 'Enter' && handleSubmitPost()}
+                />
+                <Button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    handleSubmitPost();
+                  }}
+                  disabled={avatarLoading}
+                  size="sm"
+                  className="rounded-xl bg-primary text-primary-foreground px-4"
+                >
+                  <Send className="w-4 h-4" />
+                </Button>
+              </div>
+            </motion.div>
+          );
+        })()}
 
         {/* Account Info */}
         <motion.div className="glass-card rounded-2xl p-4">

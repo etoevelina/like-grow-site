@@ -357,29 +357,53 @@ export default function DashboardPage() {
       });
   };
 
-  // Load saved posts on mount and when opening Feed tab (so we can clear stale "Processing" if socket event was lost)
+  const syncHistoryWithSavedPosts = useCallback((posts: { post_url: string; xp?: number; coins?: number }[]) => {
+    const norm = (u: string) => u.replace(/\/?(\?|#).*$/, '').replace(/\/+$/, '');
+    setHistory((prev) => {
+      const processingIndices = prev.map((h, i) => (h.status === 'processing' ? i : -1)).filter((i) => i >= 0);
+      if (processingIndices.length === 0) return prev;
+      const next = [...prev];
+      for (const idx of processingIndices) {
+        const rowUrl = next[idx].url;
+        const found = posts.find(
+          (p) => norm(p.post_url) === norm(rowUrl) || p.post_url === rowUrl || rowUrl.startsWith(p.post_url) || p.post_url.startsWith(rowUrl)
+        );
+        if (found) {
+          next[idx] = { ...next[idx], status: 'success' as const, xp: found.xp ?? 0, coins: found.coins ?? 0 };
+        }
+      }
+      return next;
+    });
+  }, []);
+
+  // Load saved posts and sync history (recovers when socket event was lost)
   useEffect(() => {
     if (!user) return;
-    async function loadPosts() {
-      const result = await getSavedPosts(20, 0);
+    getSavedPosts(20, 0).then((result) => {
       if (result.success && result.data) {
         setSavedPosts(result.data.posts);
         setSavedPostsTotal(result.data.total);
-        // If there are still "processing" rows but server has posts, first one likely completed (socket event missed)
-        if (result.data.posts.length > 0) {
-          setHistory((prev) => {
-            const idx = prev.findIndex((h) => h.status === 'processing');
-            if (idx === -1) return prev;
-            const next = [...prev];
-            const first = result.data!.posts[0];
-            next[idx] = { ...next[idx], status: 'success' as const, xp: first.xp ?? 0, coins: first.coins ?? 0 };
-            return next;
-          });
-        }
+        syncHistoryWithSavedPosts(result.data.posts);
       }
-    }
-    loadPosts();
-  }, [user, activeTab]);
+    });
+  }, [user, activeTab, syncHistoryWithSavedPosts]);
+
+  // While there are "Processing" rows, poll saved posts every 10s to sync (backend may have finished but socket event was lost)
+  useEffect(() => {
+    if (!user) return;
+    const hasProcessing = () => history.some((h) => h.status === 'processing');
+    if (!hasProcessing()) return;
+    const t = setInterval(() => {
+      getSavedPosts(20, 0).then((result) => {
+        if (result.success && result.data) {
+          setSavedPosts(result.data.posts);
+          setSavedPostsTotal(result.data.total);
+          syncHistoryWithSavedPosts(result.data.posts);
+        }
+      });
+    }, 10000);
+    return () => clearInterval(t);
+  }, [user, history, syncHistoryWithSavedPosts]);
 
   // Load today's post count on mount and when tab becomes visible (keeps limit in sync without blocking submit click)
   useEffect(() => {
@@ -408,22 +432,16 @@ export default function DashboardPage() {
     setHistory((prev) => [{ url, status: 'processing' }, ...prev]);
     pendingPostUrlsRef.current = [...pendingPostUrlsRef.current, url];
 
-    if (isConnected) {
-      submitPost(url).catch(() => {});
-      return;
-    }
-
-    // HTTP fallback: don't await — update UI in .then() so click returns immediately
-    submitContent(url).then((result) => {
+    const applyResult = (result: { success: boolean; data?: ContentSubmitResponse; error?: string }) => {
       if (result.success && result.data?.avatar) {
         setAvatar(result.data.avatar);
-        setHistory((prev) =>
-          prev.map((h) =>
-            h.url === url
-              ? { ...h, status: 'success', xp: result.data?.xp, coins: result.data?.coins }
-              : h
-          )
-        );
+        setHistory((prev) => {
+          const idx = prev.findIndex((h) => h.status === 'processing');
+          if (idx === -1) return prev;
+          const next = [...prev];
+          next[idx] = { ...next[idx], status: 'success' as const, xp: result.data?.xp, coins: result.data?.coins };
+          return next;
+        });
         setTodayPostCount((prev) => prev + 1);
         getSavedPosts(20, 0).then((res) => {
           if (res.success && res.data) {
@@ -432,16 +450,61 @@ export default function DashboardPage() {
           }
         });
       } else {
-        setHistory((prev) =>
-          prev.map((h) => (h.url === url ? { ...h, status: 'error' } : h))
-        );
+        setHistory((prev) => {
+          const idx = prev.findIndex((h) => h.status === 'processing');
+          if (idx === -1) return prev;
+          const next = [...prev];
+          next[idx] = { ...next[idx], status: 'error' };
+          return next;
+        });
         const err = (result.error || '').toLowerCase();
         if (err.includes('limit') || err.includes('daily')) {
           setTodayPostCount(MAX_DAILY_POSTS);
           setShowLimitSheet(true);
         }
       }
-    });
+    };
+
+    if (isConnected) {
+      submitPost(url)
+        .then((payload) => {
+          if (payload.ok && payload.avatar) {
+            setAvatar(payload.avatar);
+            setHistory((prev) => {
+              const idx = prev.findIndex((h) => h.status === 'processing');
+              if (idx === -1) return prev;
+              const next = [...prev];
+              next[idx] = { ...next[idx], status: 'success' as const, xp: payload.xp, coins: payload.coins };
+              return next;
+            });
+            setTodayPostCount((prev) => prev + 1);
+            getSavedPosts(20, 0).then((res) => {
+              if (res.success && res.data) {
+                setSavedPosts(res.data.posts);
+                setSavedPostsTotal(res.data.total);
+              }
+            });
+          } else {
+            setHistory((prev) => {
+              const idx = prev.findIndex((h) => h.status === 'processing');
+              if (idx === -1) return prev;
+              const next = [...prev];
+              next[idx] = { ...next[idx], status: 'error' };
+              return next;
+            });
+            if (payload.error && (payload.error.toLowerCase().includes('limit') || payload.error.toLowerCase().includes('daily'))) {
+              setTodayPostCount(MAX_DAILY_POSTS);
+              setShowLimitSheet(true);
+            }
+          }
+        })
+        .catch(() => {
+          submitContent(url).then(applyResult);
+        });
+      return;
+    }
+
+    submitContent(url).then(applyResult);
   }, [postUrl, todayPostCount, isConnected, submitPost]);
 
   // Reveal avatar for new users

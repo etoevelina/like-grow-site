@@ -28,7 +28,7 @@ const ONBOARDING_SLIDES = [
     icon: Link2,
     title: 'How the App Works',
     description: 'On the dashboard you’ll feed your avatar with TikTok or Instagram links. Each post gives XP and coins. Complete tasks for extra rewards, spend coins in the shop on looks, and tap your avatar for bonus XP.',
-    highlight: 'Connect LikePost to unlock more daily submissions and keep growing.',
+    highlight: 'Connect LikePost to unlock more and keep growing.',
     color: 'accent',
   },
   {
@@ -44,7 +44,7 @@ const ONBOARDING_SLIDES = [
     icon: Skull,
     title: 'Keep Them Alive',
     description: 'Without fresh content, your avatar will degrade and fade. Feed them regularly to keep them thriving.',
-    highlight: 'Connect LikePost to avoid limits and organize your saves',
+    highlight: 'Up to 5 posts per day from the app. Connect LikePost to unlock more and organize your saves.',
     color: 'destructive',
   },
 ];
@@ -274,9 +274,31 @@ export function AvatarCreation({ quizState, onComplete }: AvatarCreationProps) {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.25 }}
-                className={`p-4 rounded-xl border ${getColorClass(slide.color)}`}
+                className={slide.id === 'newborn' ? 'space-y-2' : `p-4 rounded-xl border ${getColorClass(slide.color)}`}
               >
-                <p className="text-sm font-medium">{slide.highlight}</p>
+                {slide.id === 'newborn' ? (
+                  <div className="flex flex-col gap-2">
+                    {[
+                      { category: 'Fitness', result: 'muscular' },
+                      { category: 'Travel', result: 'explorer' },
+                      { category: 'Fashion', result: 'stylish' },
+                    ].map((item, i) => (
+                      <motion.div
+                        key={item.category}
+                        initial={{ opacity: 0, x: -12 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: 0.3 + i * 0.1 }}
+                        className="flex items-center justify-between gap-3 rounded-xl bg-primary/10 border border-primary/20 px-4 py-3"
+                      >
+                        <span className="text-sm font-medium text-foreground">{item.category}</span>
+                        <span className="text-primary text-lg font-bold" aria-hidden>→</span>
+                        <span className="text-sm font-semibold text-primary">{item.result}</span>
+                      </motion.div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-sm font-medium">{slide.highlight}</p>
+                )}
               </motion.div>
             </motion.div>
           ) : reinforcement ? (

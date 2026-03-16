@@ -209,11 +209,14 @@ export async function getAvatarProfile(): Promise<{
   }
 }
 
-// Tap avatar for bonus XP (cooldown on backend)
+// Tap avatar for bonus XP (no cooldown; on level up backend runs evolution in background)
 export async function tapAvatar(): Promise<{
   success: boolean;
   xp_awarded?: number;
   avatar?: Avatar;
+  leveled_up?: boolean;
+  old_level?: number;
+  new_level?: number;
   cooldown_seconds_remaining?: number;
   error?: string;
 }> {
@@ -246,6 +249,9 @@ export async function tapAvatar(): Promise<{
       success: true,
       xp_awarded: data.xp_awarded,
       avatar: data.avatar,
+      leveled_up: data.leveled_up,
+      old_level: data.old_level,
+      new_level: data.new_level,
     };
   } catch {
     return { success: false, error: 'Network error' };

@@ -134,6 +134,7 @@ export default function DashboardPage() {
   // Socket: single connection, avatar updates + content submit results
   const handleAvatarUpdate = useCallback((updatedAvatar: AvatarType) => {
     setAvatar(updatedAvatar);
+    setIsBackgroundRegenerating(false);
   }, []);
 
   const handleContentResult = useCallback((data: ContentSubmitResponse) => {
@@ -158,6 +159,7 @@ export default function DashboardPage() {
           setSavedPostsTotal(result.data.total);
         }
       });
+      // Post submit evolution is synchronous — new avatar is already in data.avatar; no need for background indicator
     } else {
       updateFirstProcessing('error');
       if (data.error && (data.error.toLowerCase().includes('limit') || data.error.toLowerCase().includes('daily'))) {
@@ -197,6 +199,9 @@ export default function DashboardPage() {
   const [showLimitSheet, setShowLimitSheet] = useState(false);
   const [tapMessage, setTapMessage] = useState<string | null>(null);
   const [tapPulse, setTapPulse] = useState(false);
+  // Level-up: congrats modal; background regeneration (avatar visible, subtle "Updating..." indicator)
+  const [showLevelUpModal, setShowLevelUpModal] = useState<{ show: boolean; newLevel?: number }>({ show: false });
+  const [isBackgroundRegenerating, setIsBackgroundRegenerating] = useState(false);
   
   // Check if avatar is ready
   const avatarReady = !!(avatar?.current_video_url || avatar?.current_image_url);
@@ -339,11 +344,12 @@ export default function DashboardPage() {
     if (result.success) {
       showToast(`Purchased: ${item.name}!`, 'success');
       setPurchaseSuccess({ itemName: item.name, show: true });
+      setIsBackgroundRegenerating(true);
       // Auto-hide success after 2 seconds
       setTimeout(() => setPurchaseSuccess({ itemName: '', show: false }), 2000);
-      // Update full avatar when ready
+      // Update full avatar when ready (backend may send updated avatar later via socket)
       if (result.avatar) {
-        setAvatar(result.avatar);
+        setAvatar(result.avatar as AvatarType);
       }
     } else {
       // Refund coins on failure
@@ -453,7 +459,7 @@ export default function DashboardPage() {
     localStorage.setItem('onboarding_complete', 'true');
   };
 
-  // Tap avatar for bonus XP (no cooldown)
+  // Tap avatar for bonus XP (no cooldown). On level up: show congrats modal and set background regeneration.
   const handleTapAvatar = async () => {
     if (!avatarReady || isGenerating || purchaseSuccess.show) return;
     if (isNewUser && !shutterOpen) return;
@@ -461,8 +467,14 @@ export default function DashboardPage() {
     if (result.success && result.avatar) {
       setAvatar(result.avatar as AvatarType);
       setTapPulse(true);
-      setTapMessage(`+${result.xp_awarded ?? 0} XP!`);
+      const xp = Number(result.xp_awarded ?? 0);
+      const xpStr = xp < 1 || xp !== Math.floor(xp) ? xp.toFixed(3) : String(Math.round(xp));
+      setTapMessage(`+${xpStr} XP!`);
       setTimeout(() => setTapMessage(null), 2000);
+      if (result.leveled_up) {
+        setShowLevelUpModal({ show: true, newLevel: result.new_level ?? undefined });
+        setIsBackgroundRegenerating(true);
+      }
     }
   };
 
@@ -533,8 +545,8 @@ export default function DashboardPage() {
         >
           {avatarReady ? (
             <>
-              {/* Generating overlay with video */}
-              {isGenerating && !purchaseSuccess.show && (
+              {/* Full-screen generating overlay only for first creation (not background regeneration) */}
+              {isGenerating && !purchaseSuccess.show && !isBackgroundRegenerating && (
                 <div className="absolute inset-0 bg-black flex flex-col items-center justify-center z-10 rounded-3xl">
                   <video
                     src="/videos/loading.mp4"
@@ -552,6 +564,13 @@ export default function DashboardPage() {
                       transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
                     />
                   </div>
+                </div>
+              )}
+              {/* Subtle "Updating avatar" bar for background regeneration — avatar stays visible */}
+              {isBackgroundRegenerating && (
+                <div className="absolute bottom-0 left-0 right-0 z-10 bg-black/50 backdrop-blur-sm px-3 py-2 rounded-b-3xl flex items-center justify-center gap-2">
+                  <Loader2 className="w-4 h-4 animate-spin text-white/90" />
+                  <span className="text-sm text-white/90">Updating your avatar...</span>
                 </div>
               )}
               
@@ -1106,6 +1125,44 @@ export default function DashboardPage() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Level-up congrats modal — semi-transparent overlay */}
+      <AnimatePresence>
+        {showLevelUpModal.show && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowLevelUpModal({ show: false })}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0 }}
+              animate={{ scale: 1, opacity: 1 }}
+              exit={{ scale: 0.95, opacity: 0 }}
+              transition={{ type: 'spring', damping: 20 }}
+              className="glass-card rounded-2xl p-6 max-w-sm w-full border border-border shadow-xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="text-center">
+                <div className="w-14 h-14 rounded-full bg-primary/20 flex items-center justify-center mx-auto mb-4">
+                  <Trophy className="w-8 h-8 text-primary" />
+                </div>
+                <h3 className="text-xl font-bold text-foreground mb-2">Congratulations!</h3>
+                <p className="text-muted-foreground mb-6">
+                  Your character has grown up{showLevelUpModal.newLevel != null ? ` — Level ${showLevelUpModal.newLevel}` : ''}. We&apos;re updating their look.
+                </p>
+                <Button
+                  onClick={() => setShowLevelUpModal({ show: false })}
+                  className="w-full"
+                >
+                  OK
+                </Button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </main>
   );
 }
